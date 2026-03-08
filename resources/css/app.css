@@ -1,15 +1,39 @@
 @import "tailwindcss";
 @import "flowbite/src/themes/default";
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400&family=Inter:wght@300;400;600&display=swap');
 
-
-/* El punto (.) al inicio le dice a Tailwind que empiece desde la raíz del proyecto */
 @source "../../resources/views/**/*.blade.php";
-@source "../../resources/js/**/*.js";
-@source "../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php";
+
+@theme {
+    /* Colores exactos de tu código React */
+    --color-solare-green-dark: #50594e;
+    --color-solare-green-mid: #798273;
+    --color-solare-clay: #958174;
+    --color-solare-input-bg: #edebe8;
+    --color-solare-border: #c3c3c3;
+    
+    --font-serif-solare: "Cormorant Garamond", serif;
+}
 
 @plugin "flowbite/plugin";
 
-@theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-        'Segoe UI Symbol', 'Noto Color Emoji';
+@layer components {
+    /* El input "iS" de tu React */
+    .solare-input {
+        @apply w-full p-[11px_13px] bg-solare-input-bg border-[1.5px] border-transparent 
+               border-b-solare-border text-[13px] text-black font-sans transition-all duration-200
+               focus:outline-none focus:border-b-solare-clay focus:bg-white;
+    }
+
+    /* El panel del gradiente */
+    .solare-sidebar {
+        @apply relative flex-1 hidden lg:flex flex-col justify-between p-[44px_48px] overflow-hidden;
+        background: linear-gradient(155deg, var(--color-solare-green-dark) 0%, var(--color-solare-green-mid) 55%, var(--color-solare-clay) 100%);
+    }
+
+    /* Botón "btn-p" */
+    .solare-btn-p {
+        @apply w-full p-[13px] bg-solare-clay text-white text-[11px] font-bold 
+               tracking-[2px] uppercase transition-all hover:opacity-90 active:scale-[0.98];
+    }
 }

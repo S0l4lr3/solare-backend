@@ -17,7 +17,7 @@ return new class extends Migration
             $table->String('nombre');
             $table->String('descripcion');
             $table->dateTime('creado_en');
-            $table->dataTime('actualizado_en');
+            $table->dateTime('actualizado_en');
             });
     }
 
