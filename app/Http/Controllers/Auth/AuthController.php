@@ -48,8 +48,8 @@ class AuthController extends Controller
                     'telefono' => $request->telefono,
                 ]);
 
-                // 4. Generar Token
-                $token = $user->createToken('auth_token')->plainTextToken;
+                // 4. Generar Token con Passport (estilo hibiki)
+                $token = $user->createToken('SolareToken')->accessToken;
 
                 return response()->json([
                     'message' => 'Usuario registrado exitosamente como Cliente',
@@ -110,7 +110,6 @@ class AuthController extends Controller
 
     /**
      * Iniciar sesión y obtener un token de acceso.
-     */
      * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\JsonResponse
      */
@@ -131,8 +130,8 @@ class AuthController extends Controller
             ]);
         }
 
-        // Crear un token con Sanctum
-        $token = $user->createToken('auth_token')->plainTextToken;
+        // Crear un token con Passport (estilo hibiki)
+        $token = $user->createToken('SolareToken')->accessToken;
 
         return response()->json([
             'message' => 'Inicio de sesión exitoso',
@@ -156,7 +155,7 @@ class AuthController extends Controller
      */
     public function logout(Request $request)
     {
-        $request->user()->currentAccessToken()->delete();
+        $request->user()->token()->revoke();
 
         return response()->json([
             'message' => 'Sesión cerrada exitosamente'
