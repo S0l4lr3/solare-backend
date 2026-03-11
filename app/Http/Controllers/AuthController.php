@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Hash;
 class AuthController extends Controller
 {
     public function signIn(Request $request){
-        // Validamos lo que viene de la "maleta" $request
+        // Vali damos lo que viene de la "maleta" $request
     $request->validate([
         'nombre' => 'required|string',
         'correo' => 'required|email|unique:usuarios,correo',
@@ -51,6 +51,18 @@ public function login(Request $request)
             'nombre' => $usuario->nombre,
             'correo' => $usuario->correo
         ]
+    ], 200);
+}
+
+public function logout(Request $request)
+{
+    // $request->user() obtiene al usuario que mandó el token
+    // token() accede al token específico que se usó en esta petición
+    // revoke() lo marca como "invalidado" en la base de datos
+    $request->user()->token()->revoke();
+
+    return response()->json([
+        'mensaje' => 'Sesión cerrada exitosamente para este dispositivo.'
     ], 200);
 }
 }
