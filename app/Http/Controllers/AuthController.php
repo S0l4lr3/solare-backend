@@ -3,66 +3,87 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Auth;
 use App\Models\Usuario;
 use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
-    public function signIn(Request $request){
-        // Vali damos lo que viene de la "maleta" $request
-    $request->validate([
-        'nombre' => 'required|string',
-        'correo' => 'required|email|unique:usuarios,correo',
-        'contrasena' => 'required|min:8',
-        'rol_id' => 'required|integer'
-    ]);
+    /**
+     * Registro de usuarios (Nodo Backend)
+     */
+    public function signIn(Request $request)
+    {
+        // Registro del Nodo de Usuario
+        try {
+            $usuario = Usuario::create([
+                'nombre' => $request->nombre,
+                'apellido_paterno' => $request->apellido_paterno ?? 'Pendiente',
+                'apellido_materno' => $request->apellido_materno ?? null,
+                'correo' => $request->correo,
+                'contrasena' => $request->contrasena, // Texto plano según instrucción
+                'rol_id' => $request->rol_id ?? 3, // Default Cliente
+            ]);
 
-    return Usuario::create([
-        'nombre' => $request->nombre,
-        'apellido_paterno' => $request->apellido_paterno,
-        'apellido_materno' => $request->apellido_materno,
-        'correo' => $request->correo,
-        'contrasena' => bcrypt($request->contrasena), // Encriptamos
-        'rol_id' => $request->rol_id,
-    ]);
+            return response()->json([
+                'success' => true,
+                'mensaje' => 'Usuario registrado exitosamente en Solare.',
+                'data' => $usuario
+            ], 201);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'mensaje' => 'Error al registrar: ' . $e->getMessage()
+            ], 422);
+        }
     }
- // En app/Http/Controllers/AuthController.php
 
-public function login(Request $request)
-{
-    // Buscamos al usuario por correo
-    $usuario = Usuario::where('correo', $request->correo)->first();
+    /**
+     * Login del Nodo Central (Mueblería Solare)
+     */
+    public function login(Request $request)
+    {
+        // 1. Buscamos al usuario por su correo electrónico
+        $usuario = Usuario::where('correo', $request->correo)->first();
 
-    // Verificamos existencia y contraseña (usando el helper Hash o la fachada)
-    if (!$usuario || !\Illuminate\Support\Facades\Hash::check($request->contrasena, $usuario->contrasena)) {
+        /**
+         * 2. Verificación de identidad.
+         * Como es un proyecto escolar, comparamos la contraseña directamente 
+         * en texto plano sin usar Hash::check.
+         */
+        if (!$usuario || $request->contrasena !== $usuario->contrasena) {
+            return response()->json([
+                'success' => false,
+                'mensaje' => 'Nodo no autorizado. Revisa tus credenciales.'
+            ], 401);
+        }
+
+        // 3. Emisión del Pasaporte de Red (Sanctum Token)
+        $token = $usuario->createToken('SolareToken')->plainTextToken;
+
         return response()->json([
-            'error' => 'No autorizado',
-            'mensaje' => 'Revisa que tu correo y contraseña sean correctos.'
-        ], 401);
+            'success' => true,
+            'data' => [
+                'token' => $token,
+                'user' => [
+                    'nombre' => $usuario->nombre,
+                    'correo' => $usuario->correo,
+                    'rol_id' => $usuario->rol_id
+                ]
+            ]
+        ], 200);
     }
 
-    // Ahora que getAuthIdentifier() devuelve el ID, esto funcionará perfecto
-    $token = $usuario->createToken('SolareToken')->accessToken;
+    /**
+     * Cierre de sesión y revocación del token
+     */
+    public function logout(Request $request)
+    {
+        $request->user()->currentAccessToken()->delete();
 
-    return response()->json([
-        'access_token' => $token,
-        'user' => [
-            'nombre' => $usuario->nombre,
-            'correo' => $usuario->correo
-        ]
-    ], 200);
-}
-
-public function logout(Request $request)
-{
-    // $request->user() obtiene al usuario que mandó el token
-    // token() accede al token específico que se usó en esta petición
-    // revoke() lo marca como "invalidado" en la base de datos
-    $request->user()->token()->revoke();
-
-    return response()->json([
-        'mensaje' => 'Sesión cerrada exitosamente para este dispositivo.'
-    ], 200);
-}
+        return response()->json([
+            'success' => true,
+            'mensaje' => 'Token de sesión revocado exitosamente.'
+        ], 200);
+    }
 }
