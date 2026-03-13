@@ -11,7 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('usuarios', function (Blueprint $table) {
+        if (!Schema::hasTable('usuarios')) {
+            Schema::create('usuarios', function (Blueprint $table) {
            $table->id(); // Este crea el 'id' bigint(20) UNSIGNED
         $table->string('nombre', 100);
         $table->string('apellido_paterno', 100);
@@ -30,6 +31,7 @@ return new class extends Migration
         $table->timestamps();
         });
     }
+}
 
     /**
      * Reverse the migrations.
