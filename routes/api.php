@@ -17,6 +17,17 @@ Route::get('/categorias', [CategoriaController::class, 'index']);
 Route::get('/productos', [ProductoController::class, 'index']);
 Route::get('/productos/{id}', [ProductoController::class, 'show']);
 
+// Ruta de prueba para el volumen de Railway
+Route::get('/test-storage', function () {
+    $filename = 'test-' . time() . '.txt';
+    \Illuminate\Support\Facades\Storage::disk('public')->put($filename, 'Contenido de prueba para el volumen de Railway');
+    return response()->json([
+        'mensaje' => 'Archivo de prueba creado con éxito',
+        'archivo' => $filename,
+        'url' => \Illuminate\Support\Facades\Storage::disk('public')->url($filename)
+    ]);
+});
+
 // Rutas protegidas (requieren token)
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
