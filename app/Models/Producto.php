@@ -10,7 +10,7 @@ class Producto extends Model
     public $timestamps = false;
 
     protected $fillable = [
-        'categoria_id', 'nombre', 'descripcion', 'precio_base', 'sku_base', 'activo'
+        'categoria_id', 'nombre', 'descripcion', 'imagen_url', 'precio_base', 'stock', 'sku_base', 'activo'
     ];
 
     public function imagenes()
