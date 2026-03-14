@@ -13,6 +13,34 @@ class ProductoController extends Controller
     /**
      * Listar productos con filtros y búsqueda.
      */
+    // public function index(Request $request)
+    // {
+    //     $query = Producto::query();
+
+    //     // Filtro por búsqueda (nombre o descripción)
+    //     if ($request->has('search') && $request->search != '') {
+    //         $search = $request->search;
+    //         $query->where(function($q) use ($search) {
+    //             $q->where('nombre', 'LIKE', "%{$search}%")
+    //               ->orWhere('descripcion', 'LIKE', "%{$search}%");
+    //         });
+    //     }
+
+    //     // Filtro por categoría
+    //     if ($request->has('categoria_id') && $request->categoria_id != '') {
+    //         $query->where('categoria_id', $request->categoria_id);
+    //     }
+
+    //     // Filtro por estado activo (opcional)
+    //     if ($request->has('activo')) {
+    //         $query->where('activo', $request->activo);
+    //     }
+
+    //     $productos = $query->with('categoria')->get();
+
+    //     return response()->json($productos);
+    // }
+
     public function index(Request $request)
     {
         $query = Producto::query();
@@ -26,9 +54,22 @@ class ProductoController extends Controller
             });
         }
 
-        // Filtro por categoría
+        // Filtro por categoría (usando el ID como lo tenías)
         if ($request->has('categoria_id') && $request->categoria_id != '') {
             $query->where('categoria_id', $request->categoria_id);
+        }
+
+        // NUEVO: Filtro por TIPO (Nombre de la categoría enviado desde tu vista)
+        if ($request->has('tipo') && $request->tipo !== 'TODOS') {
+            $query->whereHas('categoria', function($q) use ($request) {
+                $q->where('nombre', $request->tipo);
+            });
+        }
+
+        // NUEVO: Filtro por COLECCIÓN 
+        if ($request->has('coleccion') && $request->coleccion !== 'TODAS') {
+            // Nota: Esto asumirá que agregarás la columna 'coleccion' a tu tabla
+            $query->where('coleccion', $request->coleccion);
         }
 
         // Filtro por estado activo (opcional)
@@ -41,6 +82,7 @@ class ProductoController extends Controller
         return response()->json($productos);
     }
 
+    
     /**
      * Crear un nuevo producto con imagen y stock.
      */
