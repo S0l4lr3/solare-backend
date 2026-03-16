@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\AuthController;
 use App\Http\Controllers\Api\CategoriaController;
 use App\Http\Controllers\Api\ProductoController;
 use App\Http\Controllers\Api\PedidoController;
@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Route;
 
 // Rutas públicas de autenticación
 Route::post('/login', [AuthController::class, 'login']);
-Route::post('/register', [AuthController::class, 'register']);
+Route::post('/register', [AuthController::class, 'signIn']);
 
 // Rutas de Catálogo (Públicas)
 Route::get('/categorias', [CategoriaController::class, 'index']);
