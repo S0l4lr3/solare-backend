@@ -8,6 +8,20 @@ use App\Http\Controllers\Api\AdminUserController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
+// Ruta de diagnóstico para verificar tablas en la nube
+Route::get('/debug-db', function () {
+    try {
+        $tables = \Illuminate\Support\Facades\DB::select('SHOW TABLES');
+        return response()->json([
+            'database' => \Illuminate\Support\Facades\DB::getDatabaseName(),
+            'tables' => $tables,
+            'connection' => 'Exitosa'
+        ]);
+    } catch (\Exception $e) {
+        return response()->json(['error' => $e->getMessage()], 500);
+    }
+});
+
 // Rutas públicas de autenticación
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'signIn']);
@@ -33,6 +47,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/profile', [AuthController::class, 'profile']);
     
+    // Consulta de roles permitida para cualquier usuario autenticado en el panel
+    Route::get('/admin/roles', function() {
+        return \App\Models\Rol::all();
+    });
+
     // Gestión de Pedidos (Clientes y Admin)
     Route::get('/pedidos', [PedidoController::class, 'index']);
     Route::post('/pedidos', [PedidoController::class, 'store']);
