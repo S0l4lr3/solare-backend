@@ -66,12 +66,6 @@ class ProductoController extends Controller
             });
         }
 
-        // NUEVO: Filtro por COLECCIÓN 
-        if ($request->has('coleccion') && $request->coleccion !== 'TODAS') {
-            // Nota: Esto asumirá que agregarás la columna 'coleccion' a tu tabla
-            $query->where('coleccion', $request->coleccion);
-        }
-
         // Filtro por estado activo (opcional)
         if ($request->has('activo')) {
             $query->where('activo', $request->activo);

@@ -55,6 +55,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/categorias', [CategoriaController::class, 'store']);
         Route::put('/categorias/{id}', [CategoriaController::class, 'update']);
         Route::delete('/categorias/{id}', [CategoriaController::class, 'destroy']);
+
+        //rutas de visualizacion de pedidos y dashboard
+        Route::get('/pedidos/dashboard', [PedidoController::class, 'dashboard']);
     });
 
     // Rutas de Inventario (Consulta)

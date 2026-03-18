@@ -68,4 +68,21 @@ class PedidoController extends Controller
         $pedido->update($request->only('estado'));
         return response()->json($pedido);
     }
+
+    public function dashboard(Request $request)
+    {
+        $pedidos = Pedido::all();
+        $total = DetallePedido::sum('precio_unitario' * 'cantidad');
+        $pendiente = $pedidos->where('estado', 'Pendiente')->count();
+        $confirmado = $pedidos->where('estado', 'Confirmado')->count();
+        $enviado = $pedidos->where('estado', 'Enviado')->count();
+        $cancelado = $pedidos->where('estado', 'Cancelado')->count();
+        return response()->json([
+            'total' => $total,
+            'pendiente' => $pendiente,
+            'confirmado' => $confirmado,
+            'enviado' => $enviado,
+            'cancelado' => $cancelado
+        ]);
+    }
 }
