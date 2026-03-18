@@ -48,6 +48,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/admin/usuarios/{id}', [AdminUserController::class, 'update']);
         Route::delete('/admin/usuarios/{id}', [AdminUserController::class, 'destroy']);
         
+        // Nueva ruta para obtener roles
+        Route::get('/admin/roles', function() {
+            return \App\Models\Rol::all();
+        });
+        
         // Gestión de Productos y Categorías completa
         Route::post('/productos', [ProductoController::class, 'store']);
         Route::put('/productos/{id}', [ProductoController::class, 'update']);
