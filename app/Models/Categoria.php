@@ -12,7 +12,8 @@ class Categoria extends Model
     const UPDATED_AT = 'actualizado_en';
 
     protected $fillable = [
-        'nombre', 'descripcion'
+        'nombre',
+        'descripcion'
     ];
 
     public function productos()

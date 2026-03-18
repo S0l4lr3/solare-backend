@@ -8,6 +8,7 @@ class Producto extends Model
 {
     protected $table = 'productos';
 
+    // Definición obligatoria de los nombres de columnas de tiempo reales
     const CREATED_AT = 'creado_en';
     const UPDATED_AT = 'actualizado_en';
 
