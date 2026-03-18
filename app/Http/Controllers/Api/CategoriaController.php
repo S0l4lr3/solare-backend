@@ -10,7 +10,8 @@ class CategoriaController extends Controller
 {
     public function index()
     {
-        return response()->json(Categoria::all());
+        // Cargamos las categorías incluyendo el conteo de la relación 'productos'
+        return response()->json(Categoria::withCount('productos')->get());
     }
 
     public function store(Request $request)
