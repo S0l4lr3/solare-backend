@@ -46,15 +46,18 @@ class AuthController extends Controller
         // 1. Buscamos al usuario por su correo electrónico
         $usuario = Usuario::where('correo', $request->correo)->first();
 
-        /**
-         * 2. Verificación de identidad.
-         * Como es un proyecto escolar, comparamos la contraseña directamente 
-         * en texto plano sin usar Hash::check.
-         */
-        if (!$usuario || $request->contrasena !== $usuario->contrasena) {
+        // 2. Verificación específica
+        if (!$usuario) {
             return response()->json([
                 'success' => false,
-                'mensaje' => 'Nodo no autorizado. Revisa tus credenciales.'
+                'mensaje' => 'El correo electrónico no se encuentra registrado.'
+            ], 401);
+        }
+
+        if ($request->contrasena !== $usuario->contrasena) {
+            return response()->json([
+                'success' => false,
+                'mensaje' => 'La contraseña es incorrecta.'
             ], 401);
         }
 
