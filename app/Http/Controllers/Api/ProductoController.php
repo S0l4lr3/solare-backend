@@ -43,7 +43,7 @@ class ProductoController extends Controller
 
     public function index(Request $request)
     {
-        $query = Producto::query();
+        $query = Producto::with(['categoria']);
 
         // Filtro por búsqueda (nombre o descripción)
         if ($request->has('search') && $request->search != '') {
@@ -71,7 +71,7 @@ class ProductoController extends Controller
             $query->where('activo', $request->activo);
         }
 
-        $productos = $query->with('categoria')->get();
+        $productos = $query->latest('id')->get();
 
         return response()->json($productos);
     }
@@ -100,6 +100,12 @@ class ProductoController extends Controller
         if ($request->hasFile('imagen')) {
             $path = $request->file('imagen')->store('productos', 'public');
             $producto->imagen_url = $path;
+            
+            // Creamos o actualizamos el registro en la tabla imagenes_producto
+            \App\Models\ImagenProducto::updateOrCreate(
+                ['producto_id' => $producto->id, 'es_principal' => 1],
+                ['url' => $path, 'orden' => 0]
+            );
         }
 
         $producto->save();
@@ -133,10 +139,16 @@ class ProductoController extends Controller
 
         if ($request->hasFile('imagen')) {
             if ($producto->imagen_url) {
-                Storage::disk('public')->delete($producto->imagen_url);
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($producto->imagen_url);
             }
             $path = $request->file('imagen')->store('productos', 'public');
             $producto->imagen_url = $path;
+            
+            // Sincronizamos con la tabla imagenes_producto como imagen principal
+            \App\Models\ImagenProducto::updateOrCreate(
+                ['producto_id' => $producto->id, 'es_principal' => 1],
+                ['url' => $path, 'orden' => 0]
+            );
         }
 
         $producto->save();
@@ -155,5 +167,14 @@ class ProductoController extends Controller
         }
         $producto->delete();
         return response()->json(['message' => 'Producto eliminado']);
+    }
+
+    //**
+    // Mostrar imagen de un producto.
+    //**/
+    public function showproductimage($id)
+    {
+        $producto = Producto::findOrFail($id);
+        return response()->json($producto->imagen_url);
     }
 }

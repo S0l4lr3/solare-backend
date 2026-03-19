@@ -35,6 +35,14 @@ class Usuario extends Authenticatable
     ];
 
     /**
+     * Relación con el Rol del Usuario
+     */
+    public function rol()
+    {
+        return $this->belongsTo(Rol::class, 'rol_id');
+    }
+
+    /**
      * IMPORTANTE: Desactivamos el hashing para este proyecto escolar 
      * según tu instrucción. Esto permitirá comparar texto plano.
      */

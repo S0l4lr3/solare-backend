@@ -22,6 +22,19 @@ Route::get('/debug-db', function () {
     }
 });
 
+// NUEVA: Ruta para inspeccionar archivos en el Volumen
+Route::get('/debug-volume', function () {
+    $files = \Illuminate\Support\Facades\Storage::disk('public')->allFiles('productos');
+    $mount_path = storage_path('app/public');
+    
+    return response()->json([
+        'total_archivos' => count($files),
+        'directorio_montaje' => $mount_path,
+        'archivos' => $files,
+        'disco_configurado' => config('filesystems.disks.public.driver')
+    ]);
+});
+
 // Rutas públicas de autenticación
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'signIn']);
@@ -47,9 +60,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/profile', [AuthController::class, 'profile']);
     
-    // Consulta de roles permitida para cualquier usuario autenticado en el panel
+    // Consulta de roles permitida para cualquier usuario autenticado
     Route::get('/admin/roles', function() {
         return \App\Models\Rol::all();
+        
     });
 
     // Gestión de Pedidos (Clientes y Admin)

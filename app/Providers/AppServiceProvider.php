@@ -20,8 +20,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Desactivamos el forzado de esquema HTTPS según tu solicitud
+        /*
         if (app()->environment("production")) { 
             URL::forceScheme("https"); 
         }
+        */
     }
 }
