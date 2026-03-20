@@ -7,6 +7,7 @@ use App\Models\Producto;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use App\Models\ImagenProducto;
 
 class ProductoController extends Controller
 {
@@ -73,6 +74,22 @@ class ProductoController extends Controller
 
         $productos = $query->latest('id')->get();
 
+        // Transformamos la colección para que la imagen se muestre correctamente
+        $productos->each(function($producto) {
+            // Buscamos la imagen principal en la tabla imagenes_producto
+            $imagenPrincipal = ImagenProducto::where('producto_id', $producto->id)
+                ->where('es_principal', 1)
+                ->first();
+
+            if ($imagenPrincipal) {
+                // Si existe, la asignamos a la propiedad imagen_url
+                $producto->imagen_url = $imagenPrincipal->url;
+            } else {
+                // Si no existe, dejamos null o un valor por defecto
+                $producto->imagen_url = null;
+            }
+        });
+
         return response()->json($productos);
     }
 
@@ -119,6 +136,22 @@ class ProductoController extends Controller
     public function show($id)
     {
         $producto = Producto::with('categoria')->findOrFail($id);
+
+        // Buscamos la imagen principal en la tabla imagenes_producto
+        $imagenPrincipal = ImagenProducto::where('producto_id', $producto->id)
+            ->where('es_principal', 1)
+            ->first();
+
+        if ($imagenPrincipal) {
+            // Si existe, la asignamos a la propiedad imagen_url
+            $producto->imagen_url = $imagenPrincipal->url;
+        } else {
+            // Si no existe, dejamos null o un valor por defecto
+            $producto->imagen_url = null;
+        }
+        $imagenes = ImagenProducto::where('producto_id', $producto->id)->get();
+        $producto->imagenes = $imagenes;
+
         return response()->json($producto);
     }
 

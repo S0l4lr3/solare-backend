@@ -5,7 +5,10 @@ use App\Http\Controllers\Api\CategoriaController;
 use App\Http\Controllers\Api\ProductoController;
 use App\Http\Controllers\Api\PedidoController;
 use App\Http\Controllers\Api\AdminUserController;
+use App\Http\Controllers\Api\materialesController;
+use App\Http\Controllers\Api\RolController;
 use Illuminate\Http\Request;
+
 use Illuminate\Support\Facades\Route;
 
 // Ruta de diagnóstico para verificar tablas en la nube
@@ -80,6 +83,17 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/admin/usuarios', [AdminUserController::class, 'store']);
         Route::put('/admin/usuarios/{id}', [AdminUserController::class, 'update']);
         Route::delete('/admin/usuarios/{id}', [AdminUserController::class, 'destroy']);
+            //rutas de materiales
+        Route::get('/materiales', [materialesController::class, 'index']);
+        Route::post('/materiales', [materialesController::class, 'store']);
+        Route::put('/materiales/{id}', [materialesController::class, 'update']);
+        Route::delete('/materiales/{id}', [materialesController::class, 'destroy']);
+
+        //rutas de roles
+        Route::get('/roles', [RolController::class, 'index']);
+        Route::post('/roles', [RolController::class, 'store']);
+        Route::put('/roles/{id}', [RolController::class, 'update']);
+        Route::delete('/roles/{id}', [RolController::class, 'destroy']);
         
         // Nueva ruta para obtener roles
         Route::get('/admin/roles', function() {
@@ -113,4 +127,16 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/reportes/ventas', [\App\Http\Controllers\Api\ReporteController::class, 'ventasResumen']);
         Route::get('/reportes/ventas/pdf', [\App\Http\Controllers\Api\ReporteController::class, 'exportPdf']);
     });
+
+    //rutas de materiales
+    Route::get('/materiales', [materialesController::class, 'index']);
+    Route::post('/materiales', [materialesController::class, 'store']);
+    Route::put('/materiales/{id}', [materialesController::class, 'update']);
+    Route::delete('/materiales/{id}', [materialesController::class, 'destroy']);
+
+    //rutas de roles
+    Route::get('/roles', [RolController::class, 'index']);
+    Route::post('/roles', [RolController::class, 'store']);
+    Route::put('/roles/{id}', [RolController::class, 'update']);
+    Route::delete('/roles/{id}', [RolController::class, 'destroy']);
 });
