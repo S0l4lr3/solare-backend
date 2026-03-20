@@ -1,0 +1,64 @@
+name: Backend CI - TestRail Reporting
+
+on:
+  push:
+    branches: [ "main", "devops" ]
+  pull_request:
+    branches: [ "devops" ]
+
+jobs:
+  laravel-tests:
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: password
+          MYSQL_DATABASE: laravel_test
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.4'
+        extensions: mbstring, xml, ctype, iconv, mysql, zip, bcmath
+        coverage: none
+
+    - name: Install Dependencies
+      run: composer install -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
+
+    - name: Prepare Environment
+      run: |
+        cp .env.example .env
+        php artisan key:generate
+
+    - name: Run Tests and Generate JUnit Report
+      run: php artisan test --log-junit report.xml
+      env:
+        DB_CONNECTION: mysql
+        DB_HOST: 127.0.0.1
+        DB_PORT: 3306
+        DB_DATABASE: laravel_test
+        DB_USERNAME: root
+        DB_PASSWORD: password
+
+    - name: Install TestRail CLI
+      run: pip install trcli
+
+    - name: Report Results to TestRail
+      if: always()
+      run: |
+        trcli -y \
+          -h ${{ secrets.TEST_RAIL_DOMAIN }} \
+          -u ${{ secrets.TEST_RAIL_EMAIL }} \
+          -p ${{ secrets.TEST_RAIL_KEY }} \
+          parse_junit \
+          --project "Backend Solare" \
+          --run-name "Backend Push - ${{ github.ref_name }} (${{ github.sha }})" \
+          -f report.xml
