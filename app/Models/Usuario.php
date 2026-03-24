@@ -10,7 +10,7 @@ class Usuario extends Authenticatable
 {
     use HasApiTokens, Notifiable;
 
-    protected $table = 'usuarios';
+    protected $table = 'users';
     public $timestamps = false;
 
     /**

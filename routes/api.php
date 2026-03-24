@@ -104,6 +104,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/productos', [ProductoController::class, 'store']);
         Route::put('/productos/{id}', [ProductoController::class, 'update']);
         Route::delete('/productos/{id}', [ProductoController::class, 'destroy']);
+        
+        // Rutas de Imágenes (Nueva lógica)
+        Route::get('/productos/{id}/imagenes', [\App\Http\Controllers\Api\imagencontroller::class, 'indexByProducto']);
+        Route::post('/productos/{id}/imagenes', [\App\Http\Controllers\Api\imagencontroller::class, 'store']);
+        Route::patch('/imagenes/{id}/principal', [\App\Http\Controllers\Api\imagencontroller::class, 'setPrincipal']);
+        Route::delete('/imagenes/{id}', [\App\Http\Controllers\Api\imagencontroller::class, 'destroy']);
+
         Route::post('/categorias', [CategoriaController::class, 'store']);
         Route::put('/categorias/{id}', [CategoriaController::class, 'update']);
         Route::delete('/categorias/{id}', [CategoriaController::class, 'destroy']);
