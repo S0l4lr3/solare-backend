@@ -113,6 +113,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/imagenes/{id}', [\App\Http\Controllers\Api\imagencontroller::class, 'destroy']);
 
         Route::post('/categorias', [CategoriaController::class, 'store']);
+        Route::get('/categorias/{id}', [CategoriaController::class, 'show']);
         Route::put('/categorias/{id}', [CategoriaController::class, 'update']);
         Route::delete('/categorias/{id}', [CategoriaController::class, 'destroy']);
 
