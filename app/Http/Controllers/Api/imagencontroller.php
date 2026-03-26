@@ -28,49 +28,53 @@ class imagencontroller extends Controller
     /**
      * Guardar una o varias imágenes nuevas para un producto.
      */
-    public function store(Request $request)
-    {
-        $request->validate([
-            'producto_id' => 'required|exists:productos,id',
-            'imagenes.*' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
-            'es_principal' => 'nullable|boolean'
-        ]);
+   public function store(Request $request)
+{
+    $request->validate([
+        'producto_id' => 'required|exists:productos,id',
+        'imagenes.*' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
+        'es_principal' => 'nullable' // Lo dejamos flexible
+    ]);
 
-        $producto = Producto::findOrFail($request->producto_id);
-        $nuevasImagenes = [];
+    $producto = Producto::findOrFail($request->producto_id);
+    $nuevasImagenes = [];
 
-        if ($request->hasFile('imagenes')) {
-            foreach ($request->file('imagenes') as $file) {
-                // Si es principal, quitamos la marca de principal a las anteriores
-                if ($request->es_principal) {
-                    ImagenProducto::where('producto_id', $producto->id)
-                        ->update(['es_principal' => 0]);
-                }
+    if ($request->hasFile('imagenes')) {
+        foreach ($request->file('imagenes') as $file) {
+            
+            // 1. Guardar el archivo físico en el storage
+            $path = $file->store('productos', 'public');
 
-                $path = $file->store('productos', 'public');
+            // 2. Determinar si esta imagen debe ser la principal
+            // Si el usuario mandó 'es_principal' o si el producto NO tiene imagen aún
+            $marcarComoPrincipal = $request->es_principal || empty($producto->imagen_url);
+
+            if ($marcarComoPrincipal) {
+                // Quitamos el flag de principal a las fotos anteriores en la base de datos
+                \App\Models\ImagenProducto::where('producto_id', $producto->id)
+                    ->update(['es_principal' => 0]);
                 
-                $imagen = ImagenProducto::create([
-                    'producto_id' => $producto->id,
-                    'url' => $path,
-                    'es_principal' => $request->es_principal ?? 0,
-                    'orden' => ImagenProducto::where('producto_id', $producto->id)->count() + 1
-                ]);
-
-                // Sincronizar con la tabla productos si es principal
-                if ($imagen->es_principal) {
-                    $producto->update(['imagen_url' => $path]);
-                }
-
-                $nuevasImagenes[] = $imagen;
+                // ACTUALIZAMOS LA TABLA PRODUCTOS (Esto es lo que te faltaba asegurar)
+                $producto->update(['imagen_url' => $path]);
             }
-        }
 
-        return response()->json([
-            'mensaje' => 'Imagen(es) creada(s) con éxito',
-            'data' => $nuevasImagenes
-        ], 201);
+            // 3. INSERTAR EN LA BASE DE DATOS (Tabla imagenes_producto)
+            $imagen = \App\Models\ImagenProducto::create([
+                'producto_id' => $producto->id,
+                'url' => $path,
+                'es_principal' => $marcarComoPrincipal ? 1 : 0,
+                'orden' => \App\Models\ImagenProducto::where('producto_id', $producto->id)->count() + 1
+            ]);
+
+            $nuevasImagenes[] = $imagen;
+        }
     }
 
+    return response()->json([
+        'mensaje' => 'Imagen(es) creada(s) con éxito',
+        'data' => $nuevasImagenes
+    ], 201);
+}
     /**
      * Mostrar una imagen específica.
      */

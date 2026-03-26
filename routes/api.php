@@ -81,8 +81,9 @@ Route::middleware('auth:sanctum')->group(function () {
         // Gestión de Empleados
         Route::get('/admin/usuarios', [AdminUserController::class, 'index']);
         Route::post('/admin/usuarios', [AdminUserController::class, 'store']);
-        Route::put('/admin/usuarios/{id}', [AdminUserController::class, 'update']);
+        Route::patch('/admin/usuarios/{id}', [AdminUserController::class, 'editarusuarios']);
         Route::delete('/admin/usuarios/{id}', [AdminUserController::class, 'destroy']);
+        Route::get('/admin/usuarios/{id}', [AdminUserController::class, 'show']);
             //rutas de materiales
         Route::get('/materiales', [materialesController::class, 'index']);
         Route::post('/materiales', [materialesController::class, 'store']);

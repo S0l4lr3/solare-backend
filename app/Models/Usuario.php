@@ -11,7 +11,10 @@ class Usuario extends Authenticatable
     use HasApiTokens, Notifiable;
 
     protected $table = 'users';
-    public $timestamps = false;
+    public $timestamps = true;
+
+    const CREATED_AT = 'creado_en';
+    const UPDATED_AT = 'actualizado_en';
 
     /**
      * Indica a Laravel que use la columna 'contrasena' para la clave.
@@ -27,7 +30,7 @@ class Usuario extends Authenticatable
         'apellido_materno',
         'correo',
         'contrasena',
-        'rol_id'
+        'rol_id',
     ];
 
     protected $hidden = [
