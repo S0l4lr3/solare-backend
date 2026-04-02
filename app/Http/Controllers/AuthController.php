@@ -68,11 +68,7 @@ class AuthController extends Controller
             'success' => true,
             'data' => [
                 'token' => $token,
-                'user' => [
-                    'nombre' => $usuario->nombre,
-                    'correo' => $usuario->correo,
-                    'rol_id' => $usuario->rol_id
-                ]
+                'user' => $usuario // Enviamos el modelo completo
             ]
         ], 200);
     }
@@ -88,5 +84,53 @@ class AuthController extends Controller
             'success' => true,
             'mensaje' => 'Token de sesión revocado exitosamente.'
         ], 200);
+    }
+
+    /**
+     * Actualizar perfil del usuario (Cliente)
+     */
+    public function updateProfile(Request $request)
+    {
+        try {
+            $usuario = $request->user(); // Usuario autenticado
+
+            // 1. Actualizamos datos personales en la tabla USERS
+            $usuario->update([
+                'nombre' => $request->nombre ?? $usuario->nombre,
+                'apellido_paterno' => $request->apellido_paterno ?? $usuario->apellido_paterno,
+                'apellido_materno' => $request->apellido_materno ?? $usuario->apellido_materno,
+            ]);
+
+            // 2. Buscamos o creamos la dirección en la tabla DIRECCION_ENVIOS
+            // Usamos cliente_id para relacionarlo
+            \App\Models\DireccionEnvio::updateOrCreate(
+                ['cliente_id' => $usuario->id],
+                [
+                    'calle' => $request->calle,
+                    'numero_exterior' => $request->numero_exterior,
+                    'numero_interior' => $request->numero_interior,
+                    'colonia' => $request->colonia,
+                    'ciudad' => $request->ciudad,
+                    'estado' => $request->estado,
+                    'codigo_postal' => $request->codigo_postal,
+                    'pais' => $request->pais ?? 'México',
+                    'referencias' => $request->referencias,
+                    'es_principal' => 1
+                ]
+            );
+
+            return response()->json([
+                'success' => true,
+                'mensaje' => 'Perfil y dirección actualizados exitosamente en sus tablas correspondientes.',
+                'data' => [
+                    'user' => $usuario->fresh()
+                ]
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'mensaje' => 'Error al actualizar: ' . $e->getMessage()
+            ], 422);
+        }
     }
 }

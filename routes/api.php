@@ -58,21 +58,12 @@ Route::get('/test-storage', function () {
     ]);
 });
 
+// Rutas de PayPal (Públicas para permitir el retorno de la pasarela)
+Route::post('/paypal/create', [\App\Http\Controllers\Api\ApiPayPalController::class, 'createPayment']);
+Route::post('/paypal/capture', [\App\Http\Controllers\Api\ApiPayPalController::class, 'capturePayment']);
+
 // Rutas protegidas (requieren token)
 Route::middleware('auth:sanctum')->group(function () {
-    Route::post('/logout', [AuthController::class, 'logout']);
-    Route::get('/profile', [AuthController::class, 'profile']);
-    
-    // Consulta de roles permitida para cualquier usuario autenticado
-    Route::get('/admin/roles', function() {
-        return \App\Models\Rol::all();
-        
-    });
-
-    // Gestión de Pedidos (Clientes y Admin)
-    Route::get('/pedidos', [PedidoController::class, 'index']);
-    Route::post('/pedidos', [PedidoController::class, 'store']);
-    Route::put('/pedidos/{id}', [PedidoController::class, 'update']);
 
     // RUTAS POR ROL
 
