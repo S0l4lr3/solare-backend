@@ -42,16 +42,31 @@ class PedidoController extends Controller
         return response()->json($pedidos);
     }
 
-    public function actualizarEstadoEnvio(Request $request, $id)
+    public function update(Request $request, $id)
     {
-        $request->validate([
-            'estado_envio' => 'required|in:procesando pedido,pedido enviado,pedido entregado'
-        ]);
-
+       
         $pedido = Pedido::findOrFail($id);
-        $pedido->estado_envio = $request->estado_envio;
+
+        // Si solo viene estado_envio, solo actualizamos eso
+        if ($request->has('estado_envio')) {
+            $request->validate([
+                'estado_envio' => 'required|in:procesando,en_camino,entregado,cancelado'
+            ]);
+            $pedido->estado_envio = $request->estado_envio;
+            $pedido->save();
+            return response()->json(['message' => 'Estado de envío actualizado', 'pedido' => $pedido]);
+        }
+
+        // Si vienen más campos, actualización general
+        $pedido->fill($request->only([
+            'direccion_envio_id',
+            'fecha_pedido',
+            'estado_pago',
+            'estado_envio',
+            'notas'
+        ]));
         $pedido->save();
 
-        return response()->json(['message' => 'Estado de envío actualizado', 'pedido' => $pedido]);
+        return response()->json(['message' => 'Pedido actualizado', 'pedido' => $pedido]);
     }
 }
