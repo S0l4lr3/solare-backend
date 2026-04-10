@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Pedido extends Model
 {
-    protected $table = 'pedido';
+    protected $table = 'pedidos';
      const CREATED_AT = 'creado_en';
     const UPDATED_AT = 'actualizado_en';
 

@@ -29,7 +29,7 @@ Route::get('/debug-db', function () {
 Route::get('/debug-volume', function () {
     $files = \Illuminate\Support\Facades\Storage::disk('public')->allFiles('productos');
     $mount_path = storage_path('app/public');
-    
+
     return response()->json([
         'total_archivos' => count($files),
         'directorio_montaje' => $mount_path,
@@ -75,7 +75,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::patch('/admin/usuarios/{id}', [AdminUserController::class, 'editarusuarios']);
         Route::delete('/admin/usuarios/{id}', [AdminUserController::class, 'destroy']);
         Route::get('/admin/usuarios/{id}', [AdminUserController::class, 'show']);
-            //rutas de materiales
+        //rutas de materiales
         Route::get('/materiales', [materialesController::class, 'index']);
         Route::post('/materiales', [materialesController::class, 'store']);
         Route::put('/materiales/{id}', [materialesController::class, 'update']);
@@ -86,17 +86,22 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/roles', [RolController::class, 'store']);
         Route::put('/roles/{id}', [RolController::class, 'update']);
         Route::delete('/roles/{id}', [RolController::class, 'destroy']);
-        
+
+        // Rutas de Pedidos
+        Route::get('/pedidos', [PedidoController::class, 'index']);
+        Route::post('/pedidos', [PedidoController::class, 'store']);
+        Route::put('/pedidos/{id}', [PedidoController::class, 'update']);
+
         // Nueva ruta para obtener roles
-        Route::get('/admin/roles', function() {
+        Route::get('/admin/roles', function () {
             return \App\Models\Rol::all();
         });
-        
+
         // Gestión de Productos y Categorías completa
         Route::post('/productos', [ProductoController::class, 'store']);
         Route::put('/productos/{id}', [ProductoController::class, 'update']);
         Route::delete('/productos/{id}', [ProductoController::class, 'destroy']);
-        
+
         // Rutas de Imágenes (Nueva lógica)
         Route::get('/productos/{id}/imagenes', [\App\Http\Controllers\Api\imagencontroller::class, 'indexByProducto']);
         Route::post('/productos/{id}/imagenes', [\App\Http\Controllers\Api\imagencontroller::class, 'store']);

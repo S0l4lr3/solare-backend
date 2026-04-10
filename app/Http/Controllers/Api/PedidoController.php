@@ -4,85 +4,54 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Pedido;
-use App\Models\DetallePedido;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class PedidoController extends Controller
 {
-    /**
-     * Listar todos los pedidos (Admin o Cliente propio).
-     */
-    public function index(Request $request)
+    public function index()
     {
-        $query = Pedido::with(['cliente', 'detalles.producto']);
+        $pedidos = Pedido::with([
+            'cliente.usuario',
+            'direccionEnvio'
+        ])->latest('creado_en')->get();
 
-        if ($request->has('estado')) {
-            $query->where('estado', $request->estado);
-        }
-
-        return response()->json($query->get());
-    }
-
-    /**
-     * Crear un nuevo pedido con sus detalles.
-     */
-    public function store(Request $request)
-    {
-        $request->validate([
-            'cliente_id' => 'required|exists:clientes,id',
-            'productos' => 'required|array|min:1',
-            'productos.*.id' => 'required|exists:productos,id',
-            'productos.*.cantidad' => 'required|integer|min:1',
-            'total' => 'required|numeric'
-        ]);
-
-        return DB::transaction(function() use ($request) {
-            $pedido = Pedido::create([
-                'cliente_id' => $request->cliente_id,
-                'total' => $request->total,
-                'estado' => 'Pendiente',
-                'creado_en' => now(),
-                'actualizado_en' => now()
-            ]);
-
-            foreach ($request->productos as $p) {
-                DetallePedido::create([
-                    'pedido_id' => $pedido->id,
-                    'producto_id' => $p['id'],
-                    'cantidad' => $p['cantidad'],
-                    'precio_unitario' => $p['precio'], // El precio al momento de la compra
-                ]);
+        $pedidos->transform(function ($pedido) {
+            $nombreCliente = 'Sin nombre';
+            if ($pedido->cliente && $pedido->cliente->usuario) {
+                $nombreCliente = trim(
+                    $pedido->cliente->usuario->nombre . ' ' .
+                    $pedido->cliente->usuario->apellido_paterno
+                );
             }
 
-            return response()->json($pedido->load('detalles'), 201);
+            return [
+                'id' => $pedido->id,
+                'nombre_cliente' => $nombreCliente,
+                'direccion_envio' => $pedido->direccionEnvio
+                    ? $pedido->direccionEnvio->direccion_completa
+                    : 'Recoge en sucursal',
+                'fecha_pedido' => $pedido->fecha_pedido,
+                'estado_pago' => $pedido->estado_pago,
+                'estado_envio' => $pedido->estado_envio,
+                'notas' => $pedido->notas,
+                'creado_en' => $pedido->creado_en,
+                'actualizado_en' => $pedido->actualizado_en,
+            ];
         });
+
+        return response()->json($pedidos);
     }
 
-    /**
-     * Actualizar estado del pedido (Confirmado, Enviado, etc.).
-     */
-    public function update(Request $request, $id)
+    public function actualizarEstadoEnvio(Request $request, $id)
     {
-        $pedido = Pedido::findOrFail($id);
-        $pedido->update($request->only('estado'));
-        return response()->json($pedido);
-    }
-
-    public function dashboard(Request $request)
-    {
-        $pedidos = Pedido::all();
-        $total = DetallePedido::sum('precio_unitario' * 'cantidad');
-        $pendiente = $pedidos->where('estado', 'Pendiente')->count();
-        $confirmado = $pedidos->where('estado', 'Confirmado')->count();
-        $enviado = $pedidos->where('estado', 'Enviado')->count();
-        $cancelado = $pedidos->where('estado', 'Cancelado')->count();
-        return response()->json([
-            'total' => $total,
-            'pendiente' => $pendiente,
-            'confirmado' => $confirmado,
-            'enviado' => $enviado,
-            'cancelado' => $cancelado
+        $request->validate([
+            'estado_envio' => 'required|in:procesando pedido,pedido enviado,pedido entregado'
         ]);
+
+        $pedido = Pedido::findOrFail($id);
+        $pedido->estado_envio = $request->estado_envio;
+        $pedido->save();
+
+        return response()->json(['message' => 'Estado de envío actualizado', 'pedido' => $pedido]);
     }
 }
