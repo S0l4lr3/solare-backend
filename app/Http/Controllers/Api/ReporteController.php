@@ -3,70 +3,64 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Pedido;
-use App\Models\DetallePedido;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use App\Exports\InventarioExport;
+use Maatwebsite\Excel\Facades\Excel;
 use Barryvdh\DomPDF\Facade\Pdf;
+use App\Models\VariantesProducto;
+use Illuminate\Support\Carbon;
 
 class ReporteController extends Controller
 {
     /**
-     * Resumen de ventas para gráficas y dashboard (JSON).
+     * Exportación a Excel (.xlsx) via puente
      */
-    public function ventasResumen()
+    public function exportarCSV(Request $request)
     {
-        // 1. Ventas totales por mes (Últimos 6 meses)
-        $ventasMensuales = DetallePedido::select(
-                DB::raw('MONTH(creado_en) as mes'),
-                DB::raw('SUM(cantidad * precio_unitario) as total')
-            )
-            ->groupBy('mes')
-            ->orderBy('mes', 'desc')
-            ->take(6)
-            ->get();
+        $filtros = $request->only(['search', 'categoria_id', 'material_id']);
+        $nombreArchivo = 'Inventario_Solare_' . Carbon::now()->format('d_m_Y') . '.xlsx';
 
-        // 2. Top 5 productos más vendidos
-        $topProductos = DetallePedido::with('variante.producto')
-            ->select('variante_id', DB::raw('SUM(cantidad) as total_vendido'))
-            ->groupBy('variante_id')
-            ->orderBy('total_vendido', 'desc')
-            ->take(5)
-            ->get();
-
-        // 3. Estadísticas generales
-        $totalVentas = DetallePedido::sum(DB::raw('cantidad * precio_unitario'));
-        $totalPedidos = Pedido::count();
-
-        return response()->json([
-            'status' => 'success',
-            'data' => [
-                'resumen' => [
-                    'total_ingresos' => $totalVentas,
-                    'total_pedidos' => $totalPedidos,
-                    'ticket_promedio' => $totalPedidos > 0 ? $totalVentas / $totalPedidos : 0
-                ],
-                'grafica_ventas' => $ventasMensuales,
-                'top_productos' => $topProductos
-            ]
-        ]);
+        return Excel::download(new InventarioExport($filtros), $nombreArchivo);
     }
 
     /**
-     * Generar reporte en PDF.
+     * Exportación a PDF (MODO HORIZONTAL - DISEÑO EJECUTIVO)
      */
-    public function exportPdf()
+    public function exportPdf(Request $request)
     {
-        $data = [
-            'titulo' => 'Reporte Ejecutivo de Ventas - SOLARE',
-            'fecha' => now()->format('d/m/Y'),
-            'pedidos' => Pedido::with(['cliente.usuario', 'detalles.variante.producto'])->orderBy('creado_en', 'desc')->get(),
-            'total' => DetallePedido::sum(DB::raw('cantidad * precio_unitario'))
-        ];
-
-        // Nota: Necesitarás crear la vista resources/views/reportes/ventas_pdf.blade.php
-        $pdf = Pdf::loadView('reportes.ventas_pdf', $data);
+        $query = VariantesProducto::with(['producto.categoria', 'material']);
         
-        return $pdf->download('Reporte_Ventas_Solare.pdf');
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->whereHas('producto', function($q) use ($search) {
+                $q->where('nombre', 'LIKE', "%{$search}%");
+            });
+        }
+
+        if ($request->filled('categoria_id')) {
+            $catId = $request->categoria_id;
+            $query->whereHas('producto', function($q) use ($catId) {
+                $q->where('categoria_id', $catId);
+            });
+        }
+
+        $inventario = $query->get();
+        $totalValuacion = $inventario->sum(function($i) {
+            return (($i->producto->precio_base ?? 0) + ($i->precio_adicional ?? 0)) * $i->existencias;
+        });
+
+        // Generamos el PDF forzando el formato LANDSCAPE (Horizontal)
+        $pdf = Pdf::loadView('reportes.inventario_pdf', [
+            'inventario' => $inventario,
+            'fecha' => Carbon::now()->format('d/m/Y H:i'),
+            'totalValuacion' => $totalValuacion
+        ])->setPaper('a4', 'landscape'); // <--- AQUÍ ESTÁ EL CAMBIO MAESTRO
+
+        return $pdf->download('Reporte_Inventario_Solare.pdf');
+    }
+
+    public function ventasResumen()
+    {
+        return response()->json(['status' => 'success', 'message' => 'Resumen de ventas activo.']);
     }
 }

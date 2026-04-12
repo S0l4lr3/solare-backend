@@ -13,8 +13,28 @@ class ImagenProducto extends Model
         'producto_id', 'url', 'es_principal', 'orden'
     ];
 
-    public function producto()
+    protected $appends = ['full_image_url'];
+
+    /**
+     * Obtener la URL completa de la imagen.
+     */
+    public function getFullImageUrlAttribute()
     {
+        if (!$this->url) {
+            return null;
+        }
+
+        if (str_starts_with($this->url, 'http')) {
+            return $this->url;
+        }
+
+        $basePath = env('IMAGE_URL', asset('storage/'));
+        $basePath = rtrim($basePath, '/') . '/';
+
+        return $basePath . ltrim($this->url, '/');
+    }
+
+    public function producto()    {
         return $this->belongsTo(Producto::class, 'producto_id');
     }
 }
