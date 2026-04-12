@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class Pedido extends Model
 {
     protected $table = 'pedidos';
-     const CREATED_AT = 'creado_en';
+    const CREATED_AT = 'creado_en';
     const UPDATED_AT = 'actualizado_en';
 
     protected $fillable = [

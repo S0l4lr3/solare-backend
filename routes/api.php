@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\AdminUserController;
 use App\Http\Controllers\Api\materialesController;
 use App\Http\Controllers\Api\RolController;
 use Illuminate\Http\Request;
+use App\Http\Controllers\Api\DashboardController;
 
 use Illuminate\Support\Facades\Route;
 
@@ -25,6 +26,7 @@ Route::get('/debug-db', function () {
     }
 });
 
+
 // NUEVA: Ruta para inspeccionar archivos en el Volumen
 Route::get('/debug-volume', function () {
     $files = \Illuminate\Support\Facades\Storage::disk('public')->allFiles('productos');
@@ -41,6 +43,8 @@ Route::get('/debug-volume', function () {
 // Rutas públicas de autenticación
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'signIn']);
+// TEMPORAL — fuera de cualquier middleware
+Route::get('/debug-dashboard', [DashboardController::class, 'index']);
 
 // Rutas de Catálogo (Públicas)
 Route::get('/categorias', [CategoriaController::class, 'index']);
@@ -114,7 +118,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/categorias/{id}', [CategoriaController::class, 'destroy']);
 
         //rutas de visualizacion de pedidos y dashboard
-        Route::get('/pedidos/dashboard', [PedidoController::class, 'dashboard']);
+        Route::get('/pedidos/dashboard', [PedidoController::class, 'index']);
+        Route::get('/Dashboard', [DashboardController::class, 'index']);
+
     });
 
     // Rutas de Inventario (Consulta)
@@ -144,4 +150,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/roles', [RolController::class, 'store']);
     Route::put('/roles/{id}', [RolController::class, 'update']);
     Route::delete('/roles/{id}', [RolController::class, 'destroy']);
+
 });
+
