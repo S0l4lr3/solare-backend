@@ -78,11 +78,25 @@ class ProductoController extends Controller
         // Transformamos la colección de forma eficiente en memoria
         $productos->transform(function($producto) {
             // Buscamos la imagen principal del producto de forma manual para asignar 'imagen_url'
-            $imagenPrincipal = ImagenProducto::where('producto_id', $producto->id)
+            $imagenPrincipal = \App\Models\ImagenProducto::where('producto_id', $producto->id)
                 ->where('es_principal', 1)
                 ->first();
 
-            $producto->imagen_url = $imagenPrincipal ? $imagenPrincipal->url : null;
+            $path = $imagenPrincipal ? $imagenPrincipal->url : null;
+            $producto->imagen_url = $path;
+
+            // NUEVO: Generamos la URL completa para el Frontend de Clientes
+            if ($path) {
+                if (str_starts_with($path, 'http')) {
+                    $producto->full_image_url = $path;
+                } else {
+                    $baseUrl = env('IMAGE_URL', 'https://solare-backend-production.up.railway.app/storage/');
+                    $producto->full_image_url = rtrim($baseUrl, '/') . '/' . ltrim($path, '/');
+                }
+            } else {
+                $producto->full_image_url = null;
+            }
+
             return $producto;
         });
 
