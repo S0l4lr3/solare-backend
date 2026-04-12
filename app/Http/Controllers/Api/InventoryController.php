@@ -13,10 +13,62 @@ class InventoryController extends Controller
     /**
      * Listar todo el inventario detallado.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $inventario = VarianteProducto::with(['producto', 'material'])
-            ->get();
+        $query = \App\Models\VariantesProducto::with(['producto.categoria', 'material']);
+
+        // 1. Filtro por Búsqueda (Nombre de producto o SKU)
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->whereHas('producto', function($q) use ($search) {
+                $q->where('nombre', 'LIKE', "%{$search}%");
+            })->orWhere('sku_especifico', 'LIKE', "%{$search}%");
+        }
+
+        // 2. Filtro por Categoría
+        if ($request->filled('categoria_id')) {
+            $query->whereHas('producto', function($q) use ($request) {
+                $q->where('categoria_id', $request->categoria_id);
+            });
+        }
+
+        // 3. Filtro por Material
+        if ($request->filled('material_id')) {
+            $query->where('material_id', $request->material_id);
+        }
+
+        // 4. Filtro por Nivel de Stock (Crítico: < 3)
+        if ($request->has('stock_bajo')) {
+            $query->where('existencias', '<', 3);
+        }
+
+        // 5. Ordenamiento Dinámico
+        $sortField = $request->get('sort', 'producto'); // Por defecto producto
+        $sortOrder = $request->get('order', 'asc');
+
+        if ($sortField === 'stock') {
+            $query->orderBy('existencias', $sortOrder);
+        } elseif ($sortField === 'precio') {
+            // Ordenar por precio requiere join para acceder a precio_base
+            $query->join('productos', 'variantes_producto.producto_id', '=', 'productos.id')
+                  ->orderBy(DB::raw('productos.precio_base + variantes_producto.precio_adicional'), $sortOrder);
+        } else {
+            // Por defecto alfabético del producto (requiere join)
+            $query->join('productos', 'variantes_producto.producto_id', '=', 'productos.id')
+                  ->orderBy('productos.nombre', $sortOrder)
+                  ->select('variantes_producto.*'); // Evitar colisión de IDs
+        }
+
+        $inventario = $query->get()->map(function ($v) {
+            return [
+                'variante_id' => $v->id,
+                'producto' => $v->producto->nombre ?? 'Mueble sin nombre',
+                'material' => $v->material->nombre ?? $v->color ?? 'Base',
+                'stock_total' => $v->existencias,
+                'precio_venta' => ($v->producto->precio_base ?? 0) + ($v->precio_adicional ?? 0),
+                'sku' => $v->sku_especifico
+            ];
+        });
 
         return response()->json([
             'status' => 'success',

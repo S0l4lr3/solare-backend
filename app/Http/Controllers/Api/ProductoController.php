@@ -75,20 +75,15 @@ class ProductoController extends Controller
 
         $productos = $query->latest('id')->get();
 
-        // Transformamos la colección para que la imagen se muestre correctamente
-        $productos->each(function($producto) {
-            // Buscamos la imagen principal en la tabla imagenes_producto
+        // Transformamos la colección de forma eficiente en memoria
+        $productos->transform(function($producto) {
+            // Buscamos la imagen principal del producto de forma manual para asignar 'imagen_url'
             $imagenPrincipal = ImagenProducto::where('producto_id', $producto->id)
                 ->where('es_principal', 1)
                 ->first();
 
-            if ($imagenPrincipal) {
-                // Si existe, la asignamos a la propiedad imagen_url
-                $producto->imagen_url = $imagenPrincipal->url;
-            } else {
-                // Si no existe, dejamos null o un valor por defecto
-                $producto->imagen_url = null;
-            }
+            $producto->imagen_url = $imagenPrincipal ? $imagenPrincipal->url : null;
+            return $producto;
         });
 
         return response()->json($productos);

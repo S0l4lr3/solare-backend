@@ -14,6 +14,7 @@ class VariantesProducto extends Model
     protected $fillable = [
         'producto_id',
         'material_id',
+        'sku_especifico',
         'color',
         'precio_adicional',
         'existencias',
@@ -23,5 +24,10 @@ class VariantesProducto extends Model
     public function producto()
     {
         return $this->belongsTo(Producto::class, 'producto_id');
+    }
+
+    public function material()
+    {
+        return $this->belongsTo(materiales::class, 'material_id');
     }
 }

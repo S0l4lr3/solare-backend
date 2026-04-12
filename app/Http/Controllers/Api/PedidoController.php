@@ -44,17 +44,60 @@ class PedidoController extends Controller
 
     public function update(Request $request, $id)
     {
-       
-        $pedido = Pedido::findOrFail($id);
+        $pedido = Pedido::with('detalles')->findOrFail($id);
+        $estadoAnterior = $pedido->estado_envio;
 
         // Si solo viene estado_envio, solo actualizamos eso
         if ($request->has('estado_envio')) {
             $request->validate([
                 'estado_envio' => 'required|in:procesando,en_camino,entregado,cancelado'
             ]);
-            $pedido->estado_envio = $request->estado_envio;
-            $pedido->save();
-            return response()->json(['message' => 'Estado de envío actualizado', 'pedido' => $pedido]);
+
+            try {
+                return \Illuminate\Support\Facades\DB::transaction(function () use ($request, $pedido, $estadoAnterior) {
+                    
+                    // Lógica de Unificación: Si el pedido cambia a ENTREGADO, descontamos stock
+                    if ($request->estado_envio === 'entregado' && $estadoAnterior !== 'entregado') {
+                        foreach ($pedido->detalles as $detalle) {
+                            if ($detalle->variante_id) {
+                                $variante = \App\Models\VariantesProducto::lockForUpdate()->findOrFail($detalle->variante_id);
+                                
+                                if ($variante->existencias < $detalle->cantidad) {
+                                    throw new \Exception("Stock insuficiente para la variante ID: {$detalle->variante_id}.");
+                                }
+
+                                $cantidadAnterior = $variante->existencias;
+                                $variante->existencias -= $detalle->cantidad;
+                                $variante->save();
+
+                                // Registro del Movimiento (Kardex) para auditoría contra robo hormiga
+                                \App\Models\MovimientoInventario::create([
+                                    'variante_id' => $variante->id,
+                                    'tipo' => 'salida',
+                                    'cantidad' => $detalle->cantidad,
+                                    'cantidad_anterior' => $cantidadAnterior,
+                                    'cantidad_nueva' => $variante->existencias,
+                                    'usuario_id' => $request->user() ? $request->user()->id : 1, // Usuario 1 por defecto si es vía API/Job
+                                    'motivo' => "Venta - Pedido #{$pedido->id} (Entregado)"
+                                ]);
+                            }
+                        }
+                    }
+
+                    $pedido->estado_envio = $request->estado_envio;
+                    $pedido->save();
+
+                    return response()->json([
+                        'message' => 'Estado de envío y stock actualizados correctamente',
+                        'pedido' => $pedido->load('detalles')
+                    ]);
+                });
+            } catch (\Exception $e) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Error en la unificación de inventario: ' . $e->getMessage()
+                ], 400);
+            }
         }
 
         // Si vienen más campos, actualización general
