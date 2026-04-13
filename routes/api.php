@@ -66,7 +66,13 @@ Route::post('/paypal/capture', [\App\Http\Controllers\Api\ApiPayPalController::c
 // --- RUTAS PROTEGIDAS (TOKEN) ---
 Route::middleware('auth:sanctum')->group(function () {
 
-    // 1. ÁREA ADMINISTRATIVA (CEO y Administrador)
+    // Perfil y Pedidos del Cliente (ACCESIBLE POR TODOS LOS USUARIOS)
+    Route::get('/perfil', [AuthController::class, 'profile']);
+    Route::put('/perfil/update', [AuthController::class, 'updateProfile']);
+    Route::get('/mis-pedidos', [PedidoController::class, 'misPedidos']);
+    Route::post('/pedidos', [PedidoController::class, 'store']); // Movida aquí para que el cliente pueda comprar
+
+    // 1. ÁREA ADMINISTRATIVA (Solo CEO y Administrador)
     Route::middleware('role:CEO,Administrador')->group(function () {
         Route::get('/admin/usuarios', [AdminUserController::class, 'index']);
         Route::post('/admin/usuarios', [AdminUserController::class, 'store']);
@@ -85,7 +91,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/roles/{id}', [RolController::class, 'destroy']);
 
         Route::get('/pedidos', [PedidoController::class, 'index']);
-        Route::post('/pedidos', [PedidoController::class, 'store']);
+        // Route::post('/pedidos', [PedidoController::class, 'store']); // COMENTADA: ya está arriba
         Route::put('/pedidos/{id}', [PedidoController::class, 'update']);
 
         Route::get('/admin/roles', function () {
@@ -96,7 +102,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/productos/{id}', [ProductoController::class, 'update']);
         Route::delete('/productos/{id}', [ProductoController::class, 'destroy']);
 
-        // Gestión de Imágenes (Fix: ImagenController con I mayúscula)
         Route::get('/productos/{id}/imagenes', [ImagenController::class, 'indexByProducto']);
         Route::post('/productos/{id}/imagenes', [ImagenController::class, 'store']);
         Route::patch('/imagenes/{id}/principal', [ImagenController::class, 'setPrincipal']);
@@ -110,35 +115,23 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/pedidos/dashboard', [PedidoController::class, 'index']);
         Route::get('/Dashboard', [DashboardController::class, 'index']);
 
-        // --- NUEVAS RUTAS DE REPORTE ---
         Route::get('/reportes/inventario/pdf', [ReporteController::class, 'exportPdf']);
         Route::get('/reportes/inventario/csv', [ReporteController::class, 'exportarCSV']);
     });
 
-    // 2. ÁREA DE INVENTARIO (Consulta)
+    // 2. ÁREA DE INVENTARIO
     Route::middleware('role:CEO,Administrador,Gerente,Supervisor,Vendedor,Almacenista')->group(function () {
         Route::get('/inventario', [InventoryController::class, 'index']);
     });
 
-    // 3. ÁREA DE ALMACÉN (Modificación)
+    // 3. ÁREA DE ALMACÉN
     Route::middleware('role:CEO,Administrador,Gerente,Almacenista')->group(function () {
         Route::put('/inventario/{id}', [InventoryController::class, 'updateStock']);
     });
 
-    // 4. ÁREA DE REPORTES GENERALES
+    // 4. ÁREA DE REPORTES
     Route::middleware('role:CEO,Administrador,Gerente,Supervisor')->group(function () {
         Route::get('/reportes/ventas', [ReporteController::class, 'ventasResumen']);
         Route::get('/reportes/ventas/pdf', [ReporteController::class, 'exportPdf']);
     });
-
-    // Rutas redundantes de materiales/roles (originales del archivo)
-    Route::get('/materiales', [materialesController::class, 'index']);
-    Route::post('/materiales', [materialesController::class, 'store']);
-    Route::put('/materiales/{id}', [materialesController::class, 'update']);
-    Route::delete('/materiales/{id}', [materialesController::class, 'destroy']);
-    Route::get('/roles', [RolController::class, 'index']);
-    Route::post('/roles', [RolController::class, 'store']);
-    Route::put('/roles/{id}', [RolController::class, 'update']);
-    Route::delete('/roles/{id}', [RolController::class, 'destroy']);
-
 });
