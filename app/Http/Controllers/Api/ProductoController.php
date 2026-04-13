@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Producto;
 use App\Models\ImagenProducto;
+use App\Models\VariantesProducto;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -65,10 +66,30 @@ class ProductoController extends Controller
             'descripcion' => 'required|string',
             'precio_base' => 'required|numeric|min:0',
             'categoria_id' => 'required|exists:categorias,id',
-            'imagen' => 'nullable|image|max:2048'
+            'imagen' => 'nullable|image|max:2048',
+            'stock' => 'nullable|integer|min:0',
+            'sku_base' => 'nullable|string|max:50'
         ]);
 
-        $producto = Producto::create($request->except('imagen'));
+        $datos = $request->except('imagen');
+        
+        // Generar SKU base si no viene
+        if (empty($datos['sku_base'])) {
+            $datos['sku_base'] = strtoupper(Str::random(8));
+        }
+
+        $producto = Producto::create($datos);
+
+        // Crear una variante inicial por defecto para que aparezca en el inventario
+        VariantesProducto::create([
+            'producto_id' => $producto->id,
+            'material_id' => 1, // Aluminio por defecto
+            'color' => 'Base',
+            'precio_adicional' => 0,
+            'existencias' => $request->input('stock', 0),
+            'sku_especifico' => $producto->sku_base . '-BASE',
+            'activo' => 1
+        ]);
 
         if ($request->hasFile('imagen')) {
             $path = $request->file('imagen')->store('productos', 'public');
