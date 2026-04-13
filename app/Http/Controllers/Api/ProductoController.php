@@ -12,37 +12,6 @@ use App\Models\ImagenProducto;
 
 class ProductoController extends Controller
 {
-    /**
-     * Listar productos con filtros y búsqueda.
-     */
-    // public function index(Request $request)
-    // {
-    //     $query = Producto::query();
-
-    //     // Filtro por búsqueda (nombre o descripción)
-    //     if ($request->has('search') && $request->search != '') {
-    //         $search = $request->search;
-    //         $query->where(function($q) use ($search) {
-    //             $q->where('nombre', 'LIKE', "%{$search}%")
-    //               ->orWhere('descripcion', 'LIKE', "%{$search}%");
-    //         });
-    //     }
-
-    //     // Filtro por categoría
-    //     if ($request->has('categoria_id') && $request->categoria_id != '') {
-    //         $query->where('categoria_id', $request->categoria_id);
-    //     }
-
-    //     // Filtro por estado activo (opcional)
-    //     if ($request->has('activo')) {
-    //         $query->where('activo', $request->activo);
-    //     }
-
-    //     $productos = $query->with('categoria')->get();
-
-    //     return response()->json($productos);
-    // }
-
     public function index(Request $request)
     {
         $query = Producto::with(['categoria']);

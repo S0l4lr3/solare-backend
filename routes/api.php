@@ -54,7 +54,6 @@ Route::get('/test-storage', function () {
 // --- RUTAS PÚBLICAS ---
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'signIn']);
-Route::get('/debug-dashboard', [DashboardController::class, 'index']);
 Route::get('/categorias', [CategoriaController::class, 'index']);
 Route::get('/productos', [ProductoController::class, 'index']);
 Route::get('/productos/{id}', [ProductoController::class, 'show']);
@@ -113,7 +112,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/categorias/{id}', [CategoriaController::class, 'destroy']);
 
         Route::get('/pedidos/dashboard', [PedidoController::class, 'index']);
-        Route::get('/Dashboard', [DashboardController::class, 'index']);
+        Route::get('/dashboard', [DashboardController::class, 'index']);
 
         Route::get('/reportes/inventario/pdf', [ReporteController::class, 'exportPdf']);
         Route::get('/reportes/inventario/csv', [ReporteController::class, 'exportarCSV']);

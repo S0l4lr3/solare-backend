@@ -18,7 +18,6 @@ class imagencontroller extends Controller
         $imagenes = ImagenProducto::where('producto_id', $producto_id)
             ->orderBy('orden', 'asc')
             ->get();
-dd(ImagenProducto::first()->toArray());
 
         return response()->json([
             'mensaje' => 'Imágenes obtenidas con éxito',
