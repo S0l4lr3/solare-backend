@@ -5,132 +5,141 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Models\Usuario;
+use App\Models\Cliente;
+use App\Models\DireccionEnvio;
 use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
     /**
-     * Registro de usuarios (Nodo Backend)
+     * Registro de usuarios
      */
     public function signIn(Request $request)
     {
-        // Registro del Nodo de Usuario
         try {
             $usuario = Usuario::create([
                 'nombre' => $request->nombre,
                 'apellido_paterno' => $request->apellido_paterno ?? 'Pendiente',
                 'apellido_materno' => $request->apellido_materno ?? null,
                 'correo' => $request->correo,
-                'contrasena' => $request->contrasena, // Texto plano según instrucción
-                'rol_id' => $request->rol_id ?? 3, // Default Cliente
+                'contrasena' => $request->contrasena,
+                'rol_id' => $request->rol_id ?? 3,
             ]);
 
-            return response()->json([
-                'success' => true,
-                'mensaje' => 'Usuario registrado exitosamente en Solare.',
-                'data' => $usuario
-            ], 201);
+            return response()->json(['success' => true, 'data' => $usuario], 201);
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'mensaje' => 'Error al registrar: ' . $e->getMessage()
-            ], 422);
+            return response()->json(['success' => false, 'mensaje' => $e->getMessage()], 422);
         }
     }
 
     /**
-     * Login del Nodo Central (Mueblería Solare)
+     * Login
      */
     public function login(Request $request)
     {
-        // 1. Buscamos al usuario por su correo electrónico
         $usuario = Usuario::where('correo', $request->correo)->first();
 
-        // 2. Verificación específica
-        if (!$usuario) {
-            return response()->json([
-                'success' => false,
-                'mensaje' => 'El correo electrónico no se encuentra registrado.'
-            ], 401);
+        if (!$usuario || $request->contrasena !== $usuario->contrasena) {
+            return response()->json(['success' => false, 'mensaje' => 'Credenciales inválidas'], 401);
         }
 
-        if ($request->contrasena !== $usuario->contrasena) {
-            return response()->json([
-                'success' => false,
-                'mensaje' => 'La contraseña es incorrecta.'
-            ], 401);
-        }
-
-        // 3. Emisión del Pasaporte de Red (Sanctum Token)
         $token = $usuario->createToken('SolareToken')->plainTextToken;
 
         return response()->json([
             'success' => true,
-            'data' => [
-                'token' => $token,
-                'user' => $usuario // Enviamos el modelo completo
-            ]
+            'data' => ['token' => $token, 'user' => $usuario]
         ], 200);
     }
 
     /**
-     * Cierre de sesión y revocación del token
+     * Ver Perfil Completo (Con Direcciones)
      */
-    public function logout(Request $request)
+    public function profile(Request $request)
     {
-        $request->user()->currentAccessToken()->delete();
+        // 1. Cargamos el usuario con su perfil de cliente relacionado
+        $usuario = Usuario::with('cliente')->find($request->user()->id);
+        
+        // 2. Si el perfil de cliente no existe, lo creamos para que no falle el frontend
+        if (!$usuario->cliente) {
+            $cliente = Cliente::create([
+                'usuario_id' => $usuario->id,
+                'telefono' => 'No registrado',
+                'identificacion_fiscal' => null
+            ]);
+            $usuario = $usuario->fresh('cliente');
+        }
 
+        // 3. Obtenemos las direcciones vinculadas al perfil de cliente
+        $direcciones = DireccionEnvio::where('cliente_id', $usuario->cliente->id)->get();
+        
         return response()->json([
             'success' => true,
-            'mensaje' => 'Token de sesión revocado exitosamente.'
-        ], 200);
+            'user' => $usuario,
+            'direcciones' => $direcciones
+        ]);
     }
 
     /**
-     * Actualizar perfil del usuario (Cliente)
+     * Actualizar SOLO Datos Personales
      */
     public function updateProfile(Request $request)
     {
         try {
-            $usuario = $request->user(); // Usuario autenticado
-
-            // 1. Actualizamos datos personales en la tabla USERS
-            $usuario->update([
-                'nombre' => $request->nombre ?? $usuario->nombre,
-                'apellido_paterno' => $request->apellido_paterno ?? $usuario->apellido_paterno,
-                'apellido_materno' => $request->apellido_materno ?? $usuario->apellido_materno,
-            ]);
-
-            // 2. Buscamos o creamos la dirección en la tabla DIRECCION_ENVIOS
-            // Usamos cliente_id para relacionarlo
-            \App\Models\DireccionEnvio::updateOrCreate(
-                ['cliente_id' => $usuario->id],
-                [
-                    'calle' => $request->calle,
-                    'numero_exterior' => $request->numero_exterior,
-                    'numero_interior' => $request->numero_interior,
-                    'colonia' => $request->colonia,
-                    'ciudad' => $request->ciudad,
-                    'estado' => $request->estado,
-                    'codigo_postal' => $request->codigo_postal,
-                    'pais' => $request->pais ?? 'México',
-                    'referencias' => $request->referencias,
-                    'es_principal' => 1
-                ]
-            );
+            $usuario = $request->user();
+            $usuario->update($request->only(['nombre', 'apellido_paterno', 'apellido_materno', 'correo']));
 
             return response()->json([
                 'success' => true,
-                'mensaje' => 'Perfil y dirección actualizados exitosamente en sus tablas correspondientes.',
-                'data' => [
-                    'user' => $usuario->fresh()
-                ]
-            ], 200);
+                'mensaje' => 'Perfil actualizado correctamente.',
+                'user' => $usuario->fresh()
+            ]);
         } catch (\Exception $e) {
+            return response()->json(['success' => false, 'mensaje' => $e->getMessage()], 422);
+        }
+    }
+
+    /**
+     * Gestión de Múltiples Direcciones
+     */
+    public function storeAddress(Request $request)
+    {
+        try {
+            // Buscamos el perfil de cliente del usuario autenticado
+            $usuario = Usuario::with('cliente')->find($request->user()->id);
+            
+            if (!$usuario->cliente) {
+                return response()->json(['success' => false, 'mensaje' => 'No se encontró el perfil de cliente.'], 404);
+            }
+
+            // Guardamos la dirección vinculándola al ID de la tabla 'clientes'
+            $direccion = DireccionEnvio::create(array_merge($request->all(), [
+                'cliente_id' => $usuario->cliente->id,
+                'pais' => 'México' // Valor por defecto según Railway
+            ]));
+
             return response()->json([
-                'success' => false,
-                'mensaje' => 'Error al actualizar: ' . $e->getMessage()
-            ], 422);
+                'success' => true,
+                'mensaje' => 'Nueva dirección guardada correctamente.',
+                'direccion' => $direccion
+            ]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'mensaje' => 'Fallo al guardar: ' . $e->getMessage()], 422);
+        }
+    }
+
+    public function deleteAddress(Request $request, $id)
+    {
+        try {
+            $usuario = Usuario::with('cliente')->find($request->user()->id);
+            if (!$usuario->cliente) return response()->json(['success' => false], 404);
+
+            DireccionEnvio::where('id', $id)
+                ->where('cliente_id', $usuario->cliente->id)
+                ->delete();
+
+            return response()->json(['success' => true, 'mensaje' => 'Dirección eliminada correctamente.']);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'mensaje' => $e->getMessage()], 500);
         }
     }
 }

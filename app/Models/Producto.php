@@ -47,4 +47,12 @@ class Producto extends Model
     {
         return $this->belongsTo(Categoria::class, 'categoria_id');
     }
+
+    /**
+     * Relación con las variantes del producto (Stock específico)
+     */
+    public function variantes()
+    {
+        return $this->hasMany(VariantesProducto::class, 'producto_id');
+    }
 }

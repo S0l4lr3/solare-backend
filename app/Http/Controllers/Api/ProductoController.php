@@ -4,20 +4,22 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Producto;
+use App\Models\ImagenProducto;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use App\Models\ImagenProducto;
-
 
 class ProductoController extends Controller
 {
+    /**
+     * Listar productos con filtros y paginación.
+     */
     public function index(Request $request)
     {
-        $query = Producto::with(['categoria']);
+        $query = Producto::query();
+        $perPage = $request->input('per_page', 12); // Ahora acepta un número personalizado
 
-        // Filtro por búsqueda (nombre o descripción)
-        if ($request->has('search') && $request->search != '') {
+        if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function($q) use ($search) {
                 $q->where('nombre', 'LIKE', "%{$search}%")
@@ -25,56 +27,34 @@ class ProductoController extends Controller
             });
         }
 
-        // Filtro por categoría (usando el ID como lo tenías)
-        if ($request->has('categoria_id') && $request->categoria_id != '') {
+        if ($request->filled('categoria_id')) {
             $query->where('categoria_id', $request->categoria_id);
         }
 
-        // NUEVO: Filtro por TIPO (Nombre de la categoría enviado desde tu vista)
-        if ($request->has('tipo') && $request->tipo !== 'TODOS') {
-            $query->whereHas('categoria', function($q) use ($request) {
-                $q->where('nombre', $request->tipo);
-            });
-        }
-
-        // Filtro por estado activo (opcional)
         if ($request->has('activo')) {
             $query->where('activo', $request->activo);
         }
 
-        $productos = $query->latest('id')->get();
+        // Cargamos categoría e imágenes (solo la principal)
+        $productos = $query->with(['categoria', 'imagenes' => function($q) {
+            $q->where('es_principal', 1);
+        }])->latest('id')->paginate($perPage);
 
-        // Transformamos la colección de forma eficiente en memoria
-        $productos->transform(function($producto) {
-            // Buscamos la imagen principal del producto de forma manual para asignar 'imagen_url'
-            $imagenPrincipal = \App\Models\ImagenProducto::where('producto_id', $producto->id)
-                ->where('es_principal', 1)
-                ->first();
+        // Transformación de URLs de imagen
+        $productos->getCollection()->transform(function($producto) {
+            $img = $producto->imagenes->first();
+            $producto->imagen_url = $img ? $img->url : null;
+            $producto->full_image_url = $img ? $img->full_image_url : null;
 
-            $path = $imagenPrincipal ? $imagenPrincipal->url : null;
-            $producto->imagen_url = $path;
-
-            // NUEVO: Generamos la URL completa para el Frontend de Clientes
-            if ($path) {
-                if (str_starts_with($path, 'http')) {
-                    $producto->full_image_url = $path;
-                } else {
-                    $baseUrl = env('IMAGE_URL', 'https://solare-backend-production.up.railway.app/storage/');
-                    $producto->full_image_url = rtrim($baseUrl, '/') . '/' . ltrim($path, '/');
-                }
-            } else {
-                $producto->full_image_url = null;
-            }
-
+            // Mantenemos la categoría intacta para el frontend
             return $producto;
         });
 
         return response()->json($productos);
     }
 
-    
     /**
-     * Crear un nuevo producto con imagen y stock.
+     * Crear un nuevo producto.
      */
     public function store(Request $request)
     {
@@ -82,62 +62,42 @@ class ProductoController extends Controller
             'nombre' => 'required|string|max:150',
             'descripcion' => 'required|string',
             'precio_base' => 'required|numeric|min:0',
-            'stock' => 'required|integer|min:0',
             'categoria_id' => 'required|exists:categorias,id',
-            'imagen' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048'
+            'imagen' => 'nullable|image|max:2048'
         ]);
 
-        $producto = new Producto($request->except('imagen'));
-
-        if (!$request->sku_base) {
-            $producto->sku_base = strtoupper(Str::random(10));
-        }
+        $producto = Producto::create($request->except('imagen'));
 
         if ($request->hasFile('imagen')) {
             $path = $request->file('imagen')->store('productos', 'public');
             $producto->imagen_url = $path;
-            
-            // Creamos o actualizamos el registro en la tabla imagenes_producto
-            \App\Models\ImagenProducto::updateOrCreate(
-                ['producto_id' => $producto->id, 'es_principal' => 1],
-                ['url' => $path, 'orden' => 0]
-            );
+            $producto->save();
+
+            ImagenProducto::create([
+                'producto_id' => $producto->id,
+                'url' => $path,
+                'es_principal' => 1
+            ]);
         }
 
-        $producto->save();
-
-        return response()->json(['message' => 'Producto creado con éxito', 'producto' => $producto], 201);
+        return response()->json($producto, 201);
     }
 
     /**
-     * Ver un producto específico.
+     * Muestra el detalle de un producto con su stock real unificado.
      */
     public function show($id)
     {
-        $producto = Producto::with('categoria')->findOrFail($id);
-
-        // Buscamos la imagen principal
-        $imagenPrincipal = ImagenProducto::where('producto_id', $producto->id)
-            ->where('es_principal', 1)
-            ->first();
-
-        $path = $imagenPrincipal ? $imagenPrincipal->url : null;
-        $producto->imagen_url = $path;
-
-        // Generamos la URL completa para la imagen principal
-        $baseUrl = env('IMAGE_URL', 'https://solare-backend-production.up.railway.app/storage/');
-        if ($path) {
-            $producto->full_image_url = rtrim($baseUrl, '/') . '/' . ltrim($path, '/');
-        } else {
-            $producto->full_image_url = null;
-        }
-
-        // Procesamos TODA la galería para que también tenga URLs completas
-        $imagenes = ImagenProducto::where('producto_id', $producto->id)->get();
-        $producto->imagenes = $imagenes->map(function($img) use ($baseUrl) {
-            $img->full_url = rtrim($baseUrl, '/') . '/' . ltrim($img->url, '/');
-            return $img;
-        });
+        $producto = Producto::with(['categoria', 'imagenes', 'variantes.material'])->findOrFail($id);
+        
+        // Calculamos el stock total sumando las existencias de todas las variantes
+        $stockTotal = $producto->variantes->sum('existencias');
+        $producto->stock_real = $stockTotal;
+        $producto->stock = $stockTotal; // Añadimos 'stock' para compatibilidad con el carrito del frontend
+        
+        // La URL de imagen principal se toma automáticamente del modelo ImagenProducto si es principal
+        $imgPrincipal = $producto->imagenes->where('es_principal', 1)->first();
+        $producto->full_image_url = $imgPrincipal ? $imgPrincipal->full_image_url : null;
 
         return response()->json($producto);
     }
@@ -148,32 +108,23 @@ class ProductoController extends Controller
     public function update(Request $request, $id)
     {
         $producto = Producto::findOrFail($id);
-
-        $request->validate([
-            'nombre' => 'string|max:150',
-            'precio_base' => 'numeric|min:0',
-            'imagen' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048'
-        ]);
-
-        $producto->fill($request->except('imagen'));
+        $producto->update($request->except('imagen'));
 
         if ($request->hasFile('imagen')) {
             if ($producto->imagen_url) {
-                \Illuminate\Support\Facades\Storage::disk('public')->delete($producto->imagen_url);
+                Storage::disk('public')->delete($producto->imagen_url);
             }
             $path = $request->file('imagen')->store('productos', 'public');
             $producto->imagen_url = $path;
-            
-            // Sincronizamos con la tabla imagenes_producto como imagen principal
-            \App\Models\ImagenProducto::updateOrCreate(
+            $producto->save();
+
+            ImagenProducto::updateOrCreate(
                 ['producto_id' => $producto->id, 'es_principal' => 1],
-                ['url' => $path, 'orden' => 0]
+                ['url' => $path]
             );
         }
 
-        $producto->save();
-
-        return response()->json(['message' => 'Producto actualizado', 'producto' => $producto]);
+        return response()->json($producto);
     }
 
     /**
@@ -182,19 +133,7 @@ class ProductoController extends Controller
     public function destroy($id)
     {
         $producto = Producto::findOrFail($id);
-        if ($producto->imagen_url) {
-            Storage::disk('public')->delete($producto->imagen_url);
-        }
         $producto->delete();
         return response()->json(['message' => 'Producto eliminado']);
-    }
-
-    //**
-    // Mostrar imagen de un producto.
-    //**/
-    public function showproductimage($id)
-    {
-        $producto = Producto::findOrFail($id);
-        return response()->json($producto->imagen_url);
     }
 }

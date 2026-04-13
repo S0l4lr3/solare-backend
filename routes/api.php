@@ -68,8 +68,11 @@ Route::middleware('auth:sanctum')->group(function () {
     // Perfil y Pedidos del Cliente (ACCESIBLE POR TODOS LOS USUARIOS)
     Route::get('/perfil', [AuthController::class, 'profile']);
     Route::put('/perfil/update', [AuthController::class, 'updateProfile']);
+    Route::post('/perfil/direcciones', [AuthController::class, 'storeAddress']);
+    Route::delete('/perfil/direcciones/{id}', [AuthController::class, 'deleteAddress']);
     Route::get('/mis-pedidos', [PedidoController::class, 'misPedidos']);
-    Route::post('/pedidos', [PedidoController::class, 'store']); // Movida aquí para que el cliente pueda comprar
+    Route::post('/pedidos', [PedidoController::class, 'store']);
+    Route::post('/pedidos/{id}/cancelar', [PedidoController::class, 'cancelar']);
 
     // 1. ÁREA ADMINISTRATIVA (Solo CEO y Administrador)
     Route::middleware('role:CEO,Administrador')->group(function () {
@@ -90,7 +93,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/roles/{id}', [RolController::class, 'destroy']);
 
         Route::get('/pedidos', [PedidoController::class, 'index']);
-        // Route::post('/pedidos', [PedidoController::class, 'store']); // COMENTADA: ya está arriba
+        Route::get('/pedidos/{id}', [PedidoController::class, 'show']);
         Route::put('/pedidos/{id}', [PedidoController::class, 'update']);
 
         Route::get('/admin/roles', function () {

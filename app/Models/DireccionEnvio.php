@@ -10,6 +10,21 @@ class DireccionEnvio extends Model
     const CREATED_AT = 'creado_en';
     const UPDATED_AT = 'actualizado_en';
 
+    protected $fillable = [
+        'cliente_id',
+        'alias',
+        'calle',
+        'numero_exterior',
+        'numero_interior',
+        'colonia',
+        'ciudad',
+        'estado',
+        'codigo_postal',
+        'pais',
+        'referencias',
+        'es_principal'
+    ];
+
     protected $appends = ['direccion_completa'];
 
     public function getDireccionCompletaAttribute()

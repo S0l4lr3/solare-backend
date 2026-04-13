@@ -96,13 +96,40 @@ class ApiPayPalController extends Controller
                     $pedidoFull = Pedido::with(['detalles.variante.producto', 'detalles.variante.material'])
                         ->find($id_pedido);
 
-                    return response()->json([
-                        'status' => 'success',
-                        'data' => [
-                            'pedido' => $pedidoFull,
-                            'paypal_transaction_id' => $response['id'] ?? null
-                        ]
-                    ]);
+                    if ($pedidoFull) {
+                        $pedidoFull->refresh(); // --- CARGA EL TOTAL REAL RECIÉN GUARDADO ---
+                        
+                        // --- LÓGICA ANTI-ROBO HORMIGA: RESTA DE STOCK ---
+                        // ... (código de stock mantenido intacto)
+                        foreach ($pedidoFull->detalles as $detalle) {
+                            $variante = $detalle->variante;
+                            if ($variante) {
+                                $cantidadAnterior = $variante->existencias;
+                                $nuevaCantidad = $cantidadAnterior - $detalle->cantidad;
+                                $variante->update(['existencias' => $nuevaCantidad]);
+                                \App\Models\MovimientoInventario::create([
+                                    'variante_id' => $variante->id,
+                                    'tipo' => 'salida',
+                                    'cantidad' => $detalle->cantidad,
+                                    'cantidad_anterior' => $cantidadAnterior,
+                                    'cantidad_nueva' => $nuevaCantidad,
+                                    'pedido_id' => $pedidoFull->id,
+                                    'usuario_id' => $pedidoFull->cliente->usuario_id ?? 1,
+                                    'motivo' => 'Venta online confirmada via PayPal (Pedido #' . $pedidoFull->id . ')'
+                                ]);
+                            }
+                        }
+
+                        // --- RESUMEN MAESTRO: USAR EL TOTAL REAL DE LA BASE DE DATOS ---
+                        return response()->json([
+                            'status' => 'success',
+                            'data' => [
+                                'pedido' => $pedidoFull,
+                                'total_final' => $pedidoFull->total, // Ahora sí existe y es real
+                                'paypal_transaction_id' => $response['id'] ?? null
+                            ]
+                        ]);
+                    }
                 }
             }
 

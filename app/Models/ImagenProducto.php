@@ -13,7 +13,15 @@ class ImagenProducto extends Model
         'producto_id', 'url', 'es_principal', 'orden'
     ];
 
-    protected $appends = ['full_image_url'];
+    protected $appends = ['full_image_url', 'full_url'];
+
+    /**
+     * Alias de full_image_url para compatibilidad con el frontend
+     */
+    public function getFullUrlAttribute()
+    {
+        return $this->full_image_url;
+    }
 
     /**
      * Obtener la URL completa de la imagen.

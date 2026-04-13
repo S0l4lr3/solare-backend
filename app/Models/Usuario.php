@@ -46,6 +46,14 @@ class Usuario extends Authenticatable
     }
 
     /**
+     * Relación con el Perfil de Cliente
+     */
+    public function cliente()
+    {
+        return $this->hasOne(Cliente::class, 'usuario_id');
+    }
+
+    /**
      * IMPORTANTE: Desactivamos el hashing para este proyecto escolar 
      * según tu instrucción. Esto permitirá comparar texto plano.
      */
