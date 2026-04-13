@@ -116,20 +116,28 @@ class ProductoController extends Controller
     {
         $producto = Producto::with('categoria')->findOrFail($id);
 
-        // Buscamos la imagen principal en la tabla imagenes_producto
+        // Buscamos la imagen principal
         $imagenPrincipal = ImagenProducto::where('producto_id', $producto->id)
             ->where('es_principal', 1)
             ->first();
 
-        if ($imagenPrincipal) {
-            // Si existe, la asignamos a la propiedad imagen_url
-            $producto->imagen_url = $imagenPrincipal->url;
+        $path = $imagenPrincipal ? $imagenPrincipal->url : null;
+        $producto->imagen_url = $path;
+
+        // Generamos la URL completa para la imagen principal
+        $baseUrl = env('IMAGE_URL', 'https://solare-backend-production.up.railway.app/storage/');
+        if ($path) {
+            $producto->full_image_url = rtrim($baseUrl, '/') . '/' . ltrim($path, '/');
         } else {
-            // Si no existe, dejamos null o un valor por defecto
-            $producto->imagen_url = null;
+            $producto->full_image_url = null;
         }
+
+        // Procesamos TODA la galería para que también tenga URLs completas
         $imagenes = ImagenProducto::where('producto_id', $producto->id)->get();
-        $producto->imagenes = $imagenes;
+        $producto->imagenes = $imagenes->map(function($img) use ($baseUrl) {
+            $img->full_url = rtrim($baseUrl, '/') . '/' . ltrim($img->url, '/');
+            return $img;
+        });
 
         return response()->json($producto);
     }
