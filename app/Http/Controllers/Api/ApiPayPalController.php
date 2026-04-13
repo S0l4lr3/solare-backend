@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Srmklive\PayPal\Services\PayPal as PayPalClient;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use App\Models\Pedido;
 
 class ApiPayPalController extends Controller
 {
@@ -14,7 +15,7 @@ class ApiPayPalController extends Controller
     {
         $request->validate([
             'monto' => 'required|numeric',
-            'id_pedido' => 'nullable'
+            'id_pedido' => 'required' // Obligatorio para trazar la venta
         ]);
 
         try {
@@ -30,11 +31,12 @@ class ApiPayPalController extends Controller
                 ],
                 "purchase_units" => [
                     [
+                        "reference_id" => (string)$request->id_pedido, // Guardamos el ID del pedido en la referencia de PayPal
                         "amount" => [
                             "currency_code" => "USD",
                             "value" => number_format($request->monto, 2, '.', '')
                         ],
-                        "description" => "Pago de pedido en Solare"
+                        "description" => "Pedido #" . $request->id_pedido
                     ]
                 ]
             ]);
@@ -51,11 +53,10 @@ class ApiPayPalController extends Controller
                 }
             }
 
-            Log::error('PAYPAL ERROR CREATE:', $response);
-            return response()->json(['error' => 'No se pudo crear la orden de PayPal'], 500);
+            return response()->json(['error' => 'No se pudo crear la orden'], 500);
 
         } catch (\Exception $e) {
-            Log::error('PAYPAL EXCEPTION CREATE:', ['message' => $e->getMessage()]);
+            Log::error('PAYPAL_CREATE_EXCEPTION:', ['msg' => $e->getMessage()]);
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
@@ -69,38 +70,58 @@ class ApiPayPalController extends Controller
             $provider->setApiCredentials(config('paypal'));
             $provider->getAccessToken();
 
+            // Capturamos el pago en PayPal
             $response = $provider->capturePaymentOrder($request->token);
+            
+            Log::info('PAYPAL_CAPTURE_FULL_RESPONSE:', $response);
 
             if (isset($response['status']) && $response['status'] == 'COMPLETED') {
-                if ($request->id_pedido) {
-                    // INTENTO 1: Usar tabla 'pedidos' (Plural - Estándar Laravel y Railway)
-                    try {
-                        DB::table('pedidos')
-                            ->where('id', $request->id_pedido)
-                            ->update([
-                                'estado_pago' => 'Pagado',
-                                'estado_envio' => 'Confirmado',
-                                'actualizado_en' => now()
-                            ]);
-                    } catch (\Exception $e) {
-                        // INTENTO 2: Usar tabla 'pedido' (Singular - Local)
-                        DB::table('pedido')
-                            ->where('id', $request->id_pedido)
-                            ->update([
-                                'estado_pago' => 'Pagado',
-                                'estado_envio' => 'Confirmado',
-                                'actualizado_en' => now()
-                            ]);
+                
+                // Obtenemos el ID del pedido (prioridad a la sesión/request, sino de la referencia de PayPal)
+                $id_pedido = $request->id_pedido ?? $response['purchase_units'][0]['reference_id'] ?? null;
+                
+                if ($id_pedido) {
+                    // Actualizamos la tabla 'pedidos' (Plural siempre)
+                    DB::table('pedidos')
+                        ->where('id', $id_pedido)
+                        ->update([
+                            'estado_pago' => 'completado',
+                            'estado_envio' => 'procesando',
+                            'actualizado_en' => now()
+                        ]);
+
+                    $pedidoFull = Pedido::with(['detalles.variante.producto', 'detalles.variante.material'])
+                        ->find($id_pedido);
+
+                    if ($pedidoFull) {
+                        $resumen = [
+                            'id' => $pedidoFull->id,
+                            'total' => $pedidoFull->detalles->sum(function($d) { return $d->cantidad * $d->precio_unitario; }),
+                            'items' => $pedidoFull->detalles->map(function($d) {
+                                return [
+                                    'producto' => $d->variante->producto->nombre ?? 'Producto',
+                                    'color' => $d->variante->material->nombre ?? 'N/A',
+                                    'cantidad' => $d->cantidad,
+                                    'precio' => $d->precio_unitario
+                                ];
+                            })
+                        ];
+
+                        return response()->json([
+                            'status' => 'success',
+                            'data' => $resumen
+                        ]);
                     }
                 }
-                return response()->json(['status' => 'success']);
+                
+                // Si llegamos aquí, el pago se hizo pero no encontramos el pedido para el resumen
+                return response()->json(['status' => 'success', 'mensaje' => 'Pago recibido pero el resumen no está disponible.']);
             }
 
-            Log::error('PAYPAL ERROR CAPTURE:', $response);
-            return response()->json(['status' => 'error'], 400);
+            return response()->json(['status' => 'error', 'mensaje' => 'Pago no completado en PayPal'], 400);
 
         } catch (\Exception $e) {
-            Log::error('PAYPAL EXCEPTION CAPTURE:', ['message' => $e->getMessage()]);
+            Log::error('PAYPAL_CAPTURE_EXCEPTION:', ['msg' => $e->getMessage()]);
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
