@@ -46,7 +46,6 @@ class PedidoController extends Controller
                 $pedido = Pedido::create([
                     'cliente_id' => $cliente->id,
                     'fecha_pedido' => now(),
-                    'total' => $request->total,
                     'estado_pago' => 'pendiente',
                     'estado_envio' => 'procesando', // Valor válido según el ENUM de SQL
                     'notas' => 'Pedido realizado desde la web de Solare'

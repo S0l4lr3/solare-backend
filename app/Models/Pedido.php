@@ -14,7 +14,6 @@ class Pedido extends Model
         'cliente_id',
         'direccion_envio_id',
         'fecha_pedido',
-        'total',
         'estado_pago',
         'estado_envio',
         'notas',

@@ -15,28 +15,36 @@ class ApiPayPalController extends Controller
     {
         $request->validate([
             'monto' => 'required|numeric',
-            'id_pedido' => 'required' // Obligatorio para trazar la venta
+            'id_pedido' => 'required'
         ]);
 
         try {
             $provider = new PayPalClient;
             $provider->setApiCredentials(config('paypal'));
-            $provider->getAccessToken();
+            $token = $provider->getAccessToken();
+
+            // Error si el token no se genera (Credenciales incorrectas)
+            if (isset($token['error'])) {
+                return response()->json(['error' => 'Error de autenticación con PayPal: ' . ($token['error_description'] ?? 'Credenciales inválidas')], 500);
+            }
+
+            // Moneda configurada en config/paypal.php
+            $currency = config('paypal.currency', 'MXN');
 
             $response = $provider->createOrder([
                 "intent" => "CAPTURE",
                 "application_context" => [
-                    "return_url" => "http://localhost:8001/payment/paypal/success",
-                    "cancel_url" => "http://localhost:8001/payment/paypal/cancel",
+                    "return_url" => $request->return_url, // URL enviada por el cliente
+                    "cancel_url" => $request->cancel_url, // URL enviada por el cliente
                 ],
                 "purchase_units" => [
                     [
-                        "reference_id" => (string)$request->id_pedido, // Guardamos el ID del pedido en la referencia de PayPal
+                        "reference_id" => (string)$request->id_pedido,
                         "amount" => [
-                            "currency_code" => "USD",
+                            "currency_code" => $currency,
                             "value" => number_format($request->monto, 2, '.', '')
                         ],
-                        "description" => "Pedido #" . $request->id_pedido
+                        "description" => "Compra en Solare Muebles - Pedido #" . $request->id_pedido
                     ]
                 ]
             ]);
@@ -53,11 +61,12 @@ class ApiPayPalController extends Controller
                 }
             }
 
-            return response()->json(['error' => 'No se pudo crear la orden'], 500);
+            Log::error('PAYPAL_CREATE_ORDER_FAILED:', ['response' => $response]);
+            return response()->json(['error' => 'PayPal no pudo generar el enlace de pago.'], 500);
 
         } catch (\Exception $e) {
             Log::error('PAYPAL_CREATE_EXCEPTION:', ['msg' => $e->getMessage()]);
-            return response()->json(['error' => $e->getMessage()], 500);
+            return response()->json(['error' => 'Fallo interno al conectar con PayPal.'], 500);
         }
     }
 
@@ -70,22 +79,16 @@ class ApiPayPalController extends Controller
             $provider->setApiCredentials(config('paypal'));
             $provider->getAccessToken();
 
-            // Capturamos el pago en PayPal
             $response = $provider->capturePaymentOrder($request->token);
             
-            Log::info('PAYPAL_CAPTURE_FULL_RESPONSE:', $response);
-
             if (isset($response['status']) && $response['status'] == 'COMPLETED') {
-                
-                // Obtenemos el ID del pedido (prioridad a la sesión/request, sino de la referencia de PayPal)
                 $id_pedido = $request->id_pedido ?? $response['purchase_units'][0]['reference_id'] ?? null;
                 
                 if ($id_pedido) {
-                    // Actualizamos la tabla 'pedidos' (Plural siempre)
                     DB::table('pedidos')
                         ->where('id', $id_pedido)
                         ->update([
-                            'estado_pago' => 'completado',
+                            'estado_pago' => 'pagado',
                             'estado_envio' => 'procesando',
                             'actualizado_en' => now()
                         ]);
@@ -93,32 +96,18 @@ class ApiPayPalController extends Controller
                     $pedidoFull = Pedido::with(['detalles.variante.producto', 'detalles.variante.material'])
                         ->find($id_pedido);
 
-                    if ($pedidoFull) {
-                        $resumen = [
-                            'id' => $pedidoFull->id,
-                            'total' => $pedidoFull->detalles->sum(function($d) { return $d->cantidad * $d->precio_unitario; }),
-                            'items' => $pedidoFull->detalles->map(function($d) {
-                                return [
-                                    'producto' => $d->variante->producto->nombre ?? 'Producto',
-                                    'color' => $d->variante->material->nombre ?? 'N/A',
-                                    'cantidad' => $d->cantidad,
-                                    'precio' => $d->precio_unitario
-                                ];
-                            })
-                        ];
-
-                        return response()->json([
-                            'status' => 'success',
-                            'data' => $resumen
-                        ]);
-                    }
+                    return response()->json([
+                        'status' => 'success',
+                        'data' => [
+                            'pedido' => $pedidoFull,
+                            'paypal_transaction_id' => $response['id'] ?? null
+                        ]
+                    ]);
                 }
-                
-                // Si llegamos aquí, el pago se hizo pero no encontramos el pedido para el resumen
-                return response()->json(['status' => 'success', 'mensaje' => 'Pago recibido pero el resumen no está disponible.']);
             }
 
-            return response()->json(['status' => 'error', 'mensaje' => 'Pago no completado en PayPal'], 400);
+            Log::error('PAYPAL_CAPTURE_FAILED:', ['response' => $response]);
+            return response()->json(['status' => 'error', 'mensaje' => 'No se pudo capturar el pago.'], 400);
 
         } catch (\Exception $e) {
             Log::error('PAYPAL_CAPTURE_EXCEPTION:', ['msg' => $e->getMessage()]);
