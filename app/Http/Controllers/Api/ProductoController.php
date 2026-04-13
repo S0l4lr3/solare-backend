@@ -35,18 +35,20 @@ class ProductoController extends Controller
             $query->where('activo', $request->activo);
         }
 
-        // Cargamos categoría e imágenes (solo la principal)
+        // Cargamos categoría e imágenes (solo la principal) y variantes para el stock
         $productos = $query->with(['categoria', 'imagenes' => function($q) {
             $q->where('es_principal', 1);
-        }])->latest('id')->paginate($perPage);
+        }, 'variantes'])->latest('id')->paginate($perPage);
 
-        // Transformación de URLs de imagen
+        // Transformación de datos
         $productos->getCollection()->transform(function($producto) {
             $img = $producto->imagenes->first();
             $producto->imagen_url = $img ? $img->url : null;
             $producto->full_image_url = $img ? $img->full_image_url : null;
 
-            // Mantenemos la categoría intacta para el frontend
+            // CÁLCULO DE STOCK REAL: Sumamos existencias de todas las variantes
+            $producto->stock = $producto->variantes->sum('existencias');
+
             return $producto;
         });
 
