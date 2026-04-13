@@ -130,8 +130,32 @@ class ProductoController extends Controller
      */
     public function update(Request $request, $id)
     {
+        $request->validate([
+            'nombre' => 'required|string|max:150',
+            'descripcion' => 'required|string',
+            'precio_base' => 'required|numeric|min:0',
+            'categoria_id' => 'required|exists:categorias,id',
+            'imagen' => 'nullable|image|max:2048',
+            'stock' => 'nullable|integer|min:0',
+            'sku_base' => 'nullable|string|max:50'
+        ]);
+
         $producto = Producto::findOrFail($id);
         $producto->update($request->except('imagen'));
+
+        // Sincronizar stock con la variante por defecto (Base)
+        if ($request->has('stock')) {
+            $variante = VariantesProducto::updateOrCreate(
+                ['producto_id' => $producto->id, 'color' => 'Base'],
+                [
+                    'material_id' => 1, // Aluminio por defecto
+                    'precio_adicional' => 0,
+                    'existencias' => $request->input('stock'),
+                    'sku_especifico' => ($request->input('sku_base') ?? $producto->sku_base) . '-BASE',
+                    'activo' => 1
+                ]
+            );
+        }
 
         if ($request->hasFile('imagen')) {
             if ($producto->imagen_url) {
