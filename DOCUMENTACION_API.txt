@@ -1,0 +1,129 @@
+============================================================
+           SOLARE - DOCUMENTACIÓN TÉCNICA DE LA API
+============================================================
+Versión: 1.0
+Base URL: http://localhost:8000/api (Local) / https://solare-backend-production.up.railway.app/api
+Formato: JSON
+Autenticación: Laravel Sanctum (Bearer Token)
+
+------------------------------------------------------------
+1. AUTENTICACIÓN Y REGISTRO
+------------------------------------------------------------
+
+POST /register
+- Descripción: Registro de nuevos usuarios (clientes).
+- Body (JSON):
+  {
+    "nombre": "Juan",
+    "apellido_paterno": "Pérez",
+    "apellido_materno": "Sosa",
+    "correo": "juan@example.com",
+    "contrasena": "Password123."
+  }
+- Respuesta 201: { "success": true, "data": { ... } }
+
+POST /login
+- Descripción: Inicio de sesión y obtención de Token.
+- Body (JSON):
+  {
+    "correo": "juan@example.com",
+    "contrasena": "Password123."
+  }
+- Respuesta 200: { "success": true, "data": { "token": "...", "user": { ... } } }
+
+------------------------------------------------------------
+2. CATÁLOGO PÚBLICO (Sin Token)
+------------------------------------------------------------
+
+GET /productos
+- Descripción: Lista todos los productos activos.
+
+GET /productos/{id}
+- Descripción: Detalle de un producto específico.
+
+GET /categorias
+- Descripción: Listado de categorías disponibles.
+
+------------------------------------------------------------
+3. PERFIL Y CLIENTES (Requiere Token)
+------------------------------------------------------------
+* Header: Authorization: Bearer {TOKEN}
+
+GET /perfil
+- Descripción: Obtiene datos del usuario, perfil de cliente y sus direcciones.
+
+PUT /perfil/update
+- Descripción: Actualiza datos básicos (nombre, correo).
+
+POST /perfil/direcciones
+- Descripción: Agrega una nueva dirección de envío al cliente.
+- Body: { "calle": "...", "numero_exterior": "...", "colonia": "...", "codigo_postal": "...", "ciudad": "...", "estado": "..." }
+
+GET /mis-pedidos
+- Descripción: Historial de pedidos del cliente autenticado.
+
+POST /pedidos
+- Descripción: Crea un nuevo pedido a partir del carrito.
+
+------------------------------------------------------------
+4. GESTIÓN DE PAGOS (PayPal)
+------------------------------------------------------------
+
+POST /paypal/create
+- Descripción: Genera una orden en PayPal y devuelve el link de aprobación.
+- Body: { "monto": 1500.50 }
+
+POST /paypal/capture
+- Descripción: Captura el pago una vez que el usuario aprueba en PayPal.
+- Body: { "token": "ID-DE-ORDEN-PAYPAL" }
+
+------------------------------------------------------------
+5. ADMINISTRACIÓN (Solo CEO / Administrador)
+------------------------------------------------------------
+* Requiere Token y Rol adecuado.
+
+GET /admin/usuarios
+- Descripción: Lista todos los usuarios del sistema.
+
+PATCH /admin/usuarios/{id}
+- Descripción: Edita datos de un usuario o cambia su rol.
+
+POST /productos
+- Descripción: Crear un nuevo producto.
+
+PUT /productos/{id}
+- Descripción: Actualizar información de producto.
+
+DELETE /productos/{id}
+- Descripción: Eliminación lógica/física de producto.
+
+POST /productos/{id}/imagenes
+- Descripción: Subir fotos para un producto (Multipart/Form-Data).
+
+------------------------------------------------------------
+6. INVENTARIO Y REPORTES (Roles Staff)
+------------------------------------------------------------
+
+GET /inventario
+- Descripción: Vista global de stock y materiales.
+
+PUT /inventario/{id}
+- Descripción: Actualización manual de existencias (Almacenista/Admin).
+
+GET /reportes/ventas
+- Descripción: Resumen estadístico de ventas (CEO/Gerente).
+
+GET /reportes/inventario/pdf
+- Descripción: Descarga de reporte en formato PDF.
+
+------------------------------------------------------------
+CÓDIGOS DE RESPUESTA HTTP
+------------------------------------------------------------
+200 OK          - Petición exitosa.
+201 Created     - Recurso creado correctamente.
+400 Bad Request - Error en los datos enviados.
+401 Unauthorized- Token inválido o ausente.
+403 Forbidden   - No tienes permisos (Rol insuficiente).
+404 Not Found   - El recurso no existe.
+422 Unprocessable Entity - Fallo en validación de campos.
+500 Server Error- Error interno del servidor.
